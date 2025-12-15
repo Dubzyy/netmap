@@ -8,15 +8,17 @@ class Device(models.Model):
         ('router', 'Router'),
         ('hypervisor', 'Hypervisor'),
         ('server', 'Server'),
+        ('isp', 'ISP Equipment'),  # Add this
     ]
     
     name = models.CharField(max_length=100, unique=True)
     device_type = models.CharField(max_length=20, choices=DEVICE_TYPES)
     ip_address = models.GenericIPAddressField()
-    prometheus_instance = models.CharField(max_length=100, help_text="Instance label in Prometheus (e.g., '10.10.1.254')")
+    prometheus_instance = models.CharField(max_length=100, blank=True, help_text="Instance label in Prometheus (leave blank for dummy nodes)")
+    is_monitored = models.BooleanField(default=True, help_text="Whether this device has Prometheus metrics")  # Add this
     position_x = models.IntegerField(default=0)
     position_y = models.IntegerField(default=0)
-    icon = models.CharField(max_length=50, blank=True)
+    icon = models.TextField(blank=True, help_text="Base64 encoded image or emoji")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

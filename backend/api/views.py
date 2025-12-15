@@ -22,21 +22,26 @@ def get_topology(request):
             'label': device.name,
             'type': device.device_type,
             'ip': device.ip_address,
+            'is_monitored': device.is_monitored,
+            'icon': device.icon,  # Make sure this line is here
             'position': {'x': device.position_x, 'y': device.position_y}
         })
     
     # Build edges with real-time bandwidth
     edges = []
     for link in links:
-        # Get real-time bandwidth from Prometheus
-        metrics = prom.get_interface_bandwidth(
-            link.source_device.prometheus_instance,
-            link.source_interface
-        )
-        
-        # Calculate utilization percentage
-        total_bandwidth = metrics['inbound'] + metrics['outbound']
-        utilization = (total_bandwidth / (link.bandwidth_capacity * 2)) * 100 if link.bandwidth_capacity > 0 else 0
+        # Only get metrics if both devices are monitored
+        if link.source_device.is_monitored and link.target_device.is_monitored and link.source_device.prometheus_instance:
+            metrics = prom.get_interface_bandwidth(
+                link.source_device.prometheus_instance,
+                link.source_interface
+            )
+            total_bandwidth = metrics['inbound'] + metrics['outbound']
+            utilization = (total_bandwidth / (link.bandwidth_capacity * 2)) * 100 if link.bandwidth_capacity > 0 else 0
+        else:
+            # Dummy link - no metrics
+            metrics = {'inbound': 0, 'outbound': 0, 'timestamp': None}
+            utilization = 0
         
         edges.append({
             'id': link.id,
@@ -83,3 +88,41 @@ def list_links(request):
     links = Link.objects.all()
     serializer = LinkSerializer(links, many=True)
     return Response(serializer.data)
+
+@api_view(['POST'])
+def create_device(request):
+    """Create a new device"""
+    serializer = DeviceSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+def create_link(request):
+    """Create a new link"""
+    serializer = LinkSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['DELETE'])
+def delete_device(request, device_id):
+    """Delete a device"""
+    try:
+        device = Device.objects.get(id=device_id)
+        device.delete()
+        return Response({'status': 'deleted'}, status=status.HTTP_204_NO_CONTENT)
+    except Device.DoesNotExist:
+        return Response({'error': 'Device not found'}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['DELETE'])
+def delete_link(request, link_id):
+    """Delete a link"""
+    try:
+        link = Link.objects.get(id=link_id)
+        link.delete()
+        return Response({'status': 'deleted'}, status=status.HTTP_204_NO_CONTENT)
+    except Link.DoesNotExist:
+        return Response({'error': 'Link not found'}, status=status.HTTP_404_NOT_FOUND)
