@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NetMap - Network Topology Visualizer</title>
+    <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        #cy {
+            width: 100%;
+            height: 100vh;
+            background: #0f172a;
+        }
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(15, 23, 42, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+            max-width: 300px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .refresh-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: #3b82f6;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            border: none;
+            font-weight: bold;
+        }
+        .refresh-btn:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+<body class="bg-gray-900">
+    <div id="cy"></div>
+    <button class="refresh-btn" onclick="loadTopology()">🔄 Refresh</button>
+    <div class="info-panel" id="info-panel">
+        <h3 class="text-xl font-bold mb-3">NetMap 🗺️</h3>
+        <p class="text-sm text-gray-400">Click on links to see bandwidth details</p>
+        <div id="selection-info" class="mt-4 text-sm"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://10.10.1.8:8000/api/topology/';
+        let cy;
+
+        async function loadTopology() {
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                
+                // Convert to Cytoscape format
+                const elements = [
+                    ...data.nodes.map(n => ({
+                        data: { 
+                            id: String(n.id),
+                            label: n.label,
+                            type: n.type,
+                            ip: n.ip
+                        },
+                        position: n.position
+                    })),
+                    ...data.edges.map(e => ({
+                        data: { 
+                            id: String(e.id),
+                            source: String(e.source),
+                            target: String(e.target),
+                            label: `${e.source_interface} ↔ ${e.target_interface}`,
+                            bandwidth: e.bandwidth
+                        }
+                    }))
+                ];
+
+                if (!cy) {
+                    initCytoscape(elements);
+                } else {
+                    cy.elements().remove();
+                    cy.add(elements);
+                    cy.layout({ name: 'preset' }).run();
+                }
+
+                document.getElementById('selection-info').innerHTML = 
+                    `<div class="text-green-400">✓ Updated: ${new Date().toLocaleTimeString()}</div>
+                     <div class="mt-2">Nodes: ${data.nodes.length} | Links: ${data.edges.length}</div>`;
+                
+            } catch (error) {
+                console.error('Error loading topology:', error);
+                document.getElementById('selection-info').innerHTML = 
+                    `<div class="text-red-400">✗ Error: ${error.message}</div>`;
+            }
+        }
+
+        function initCytoscape(elements) {
+            cy = cytoscape({
+                container: document.getElementById('cy'),
+                elements: elements,
+                
+                style: [
+                    {
+                        selector: 'node',
+                        style: {
+                            'label': 'data(label)',
+                            'background-color': function(ele) {
+                                const colors = {
+                                    'firewall': '#ef4444',
+                                    'switch': '#3b82f6',
+                                    'hypervisor': '#8b5cf6',
+                                    'server': '#10b981',
+                                    'router': '#f59e0b'
+                                };
+                                return colors[ele.data('type')] || '#6b7280';
+                            },
+                            'width': 80,
+                            'height': 80,
+                            'color': '#fff',
+                            'text-valign': 'bottom',
+                            'text-halign': 'center',
+                            'text-margin-y': 10,
+                            'font-size': 14,
+                            'font-weight': 'bold',
+                            'text-background-color': '#000',
+                            'text-background-opacity': 0.7,
+                            'text-background-padding': 3
+                        }
+                    },
+                    {
+                        selector: 'edge',
+                        style: {
+                            'width': function(ele) {
+                                const util = ele.data('bandwidth')?.utilization || 0;
+                                return Math.max(3, util / 10 + 3);
+                            },
+                            'line-color': function(ele) {
+                                const util = ele.data('bandwidth')?.utilization || 0;
+                                if (util > 80) return '#ef4444';
+                                if (util > 50) return '#f59e0b';
+                                return '#10b981';
+                            },
+                            'target-arrow-shape': 'triangle',
+                            'target-arrow-color': function(ele) {
+                                const util = ele.data('bandwidth')?.utilization || 0;
+                                if (util > 80) return '#ef4444';
+                                if (util > 50) return '#f59e0b';
+                                return '#10b981';
+                            },
+                            'curve-style': 'bezier',
+                            'label': function(ele) {
+                                const bw = ele.data('bandwidth');
+                                if (!bw) return '';
+                                return `↑${bw.outbound}M ↓${bw.inbound}M`;
+                            },
+                            'font-size': 11,
+                            'color': '#fff',
+                            'text-background-color': '#000',
+                            'text-background-opacity': 0.8,
+                            'text-background-padding': 2
+                        }
+                    }
+                ],
+                
+                layout: { name: 'preset' }
+            });
+
+            // Click handler for edges
+            cy.on('tap', 'edge', function(evt) {
+                const edge = evt.target;
+                const bw = edge.data('bandwidth');
+                const label = edge.data('label');
+                
+                if (bw) {
+                    document.getElementById('selection-info').innerHTML = `
+                        <div class="font-bold text-blue-400">${label}</div>
+                        <div class="mt-2 space-y-1">
+                            <div>↓ Inbound: <span class="text-green-400">${bw.inbound} Mbps</span></div>
+                            <div>↑ Outbound: <span class="text-yellow-400">${bw.outbound} Mbps</span></div>
+                            <div>Capacity: <span class="text-gray-400">${bw.capacity} Mbps</span></div>
+                            <div>Utilization: <span class="text-orange-400">${bw.utilization}%</span></div>
+                        </div>
+                    `;
+                }
+            });
+
+            // Click handler for nodes
+            cy.on('tap', 'node', function(evt) {
+                const node = evt.target;
+                document.getElementById('selection-info').innerHTML = `
+                    <div class="font-bold text-blue-400">${node.data('label')}</div>
+                    <div class="mt-2 space-y-1">
+                        <div>Type: <span class="text-gray-400">${node.data('type')}</span></div>
+                        <div>IP: <span class="text-gray-400">${node.data('ip')}</span></div>
+                    </div>
+                `;
+            });
+
+            // Save position when node is dragged
+            cy.on('dragfree', 'node', async function(evt) {
+                const node = evt.target;
+                const pos = node.position();
+                
+                try {
+                    await fetch(`http://10.10.1.8:8000/api/device/${node.id()}/position/`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ x: Math.round(pos.x), y: Math.round(pos.y) })
+                    });
+                } catch (error) {
+                    console.error('Error saving position:', error);
+                }
+            });
+        }
+
+        // Load topology on page load
+        loadTopology();
+
+        // Auto-refresh every 30 seconds
+        setInterval(loadTopology, 30000);
+    </script>
+</body>
+</html>
