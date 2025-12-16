@@ -10,4 +10,7 @@ urlpatterns = [
     path('links/create/', views.create_link, name='create_link'),
     path('links/<int:link_id>/delete/', views.delete_link, name='delete_link'),
     path('device/<int:device_id>/position/', views.update_device_position, name='update_device_position'),
+    path('devices/<int:device_id>/update/', views.update_device, name='update_device'),
+    path('links/<int:link_id>/update/', views.update_link, name='update_link'),
+    path('links/<int:link_id>/', views.get_link, name='get_link'),
 ]

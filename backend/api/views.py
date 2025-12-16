@@ -128,3 +128,43 @@ def delete_link(request, link_id):
         return Response({'status': 'deleted'}, status=status.HTTP_204_NO_CONTENT)
     except Link.DoesNotExist:
         return Response({'error': 'Link not found'}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['PUT'])
+def update_device(request, device_id):
+    """Update a device"""
+    try:
+        device = Device.objects.get(id=device_id)
+        device.name = request.data.get('name', device.name)
+        device.device_type = request.data.get('device_type', device.device_type)
+        device.ip_address = request.data.get('ip_address', device.ip_address)
+        device.prometheus_instance = request.data.get('prometheus_instance', device.prometheus_instance)
+        device.is_monitored = request.data.get('is_monitored', device.is_monitored)
+        device.save()
+        serializer = DeviceSerializer(device)
+        return Response(serializer.data)
+    except Device.DoesNotExist:
+        return Response({'error': 'Device not found'}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['PUT'])
+def update_link(request, link_id):
+    """Update a link"""
+    try:
+        link = Link.objects.get(id=link_id)
+        link.source_interface = request.data.get('source_interface', link.source_interface)
+        link.target_interface = request.data.get('target_interface', link.target_interface)
+        link.bandwidth_capacity = request.data.get('bandwidth_capacity', link.bandwidth_capacity)
+        link.save()
+        serializer = LinkSerializer(link)
+        return Response(serializer.data)
+    except Link.DoesNotExist:
+        return Response({'error': 'Link not found'}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['GET'])
+def get_link(request, link_id):
+    """Get a single link"""
+    try:
+        link = Link.objects.get(id=link_id)
+        serializer = LinkSerializer(link)
+        return Response(serializer.data)
+    except Link.DoesNotExist:
+        return Response({'error': 'Link not found'}, status=status.HTTP_404_NOT_FOUND)
