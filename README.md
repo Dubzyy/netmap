@@ -1,6 +1,6 @@
 # NetMap 🗺️
 
-> **⚠️ WORK IN PROGRESS - NOT PRODUCTION READY ⚠️**  
+> **⚠️ WORK IN PROGRESS - NOT PRODUCTION READY ⚠️**
 > This is an active development project and should not be used in production environments without significant security hardening, testing, and validation.
 
 A real-time network topology visualizer with live bandwidth monitoring powered by Prometheus and SNMP metrics. Built for network engineers and NOC teams to visualize and monitor their infrastructure.
@@ -10,40 +10,64 @@ A real-time network topology visualizer with live bandwidth monitoring powered b
 ## 🚀 Features
 
 ### Current Capabilities
-- ✅ **Real-Time Monitoring** - Live bandwidth metrics from Prometheus/SNMP
-- ✅ **Interactive Topology** - Drag-and-drop network diagram with persistent positioning
-- ✅ **Custom Device Icons** - Upload PNG/JPG/SVG images for devices
-- ✅ **Dummy Node Support** - Add external/ISP equipment without monitoring
-- ✅ **CRUD Operations** - Add, edit, and delete devices and links via web UI
-- ✅ **Bandwidth Visualization** - Real-time inbound/outbound traffic display
-- ✅ **Utilization Monitoring** - Color-coded link utilization indicators
-- ✅ **Auto-Refresh** - Updates every 30 seconds automatically
-- ✅ **Clean Professional UI** - Modern, responsive design
+- ✅ **Real-Time Monitoring** - Live bandwidth metrics from Prometheus/SNMP with 30-second auto-refresh
+- ✅ **Interactive Topology** - Drag-and-drop network diagram with persistent node positioning
+- ✅ **Dark Mode** - Beautiful dark theme with smooth transitions and theme persistence
+- ✅ **Curved/Straight Lines** - Toggle between curved bezier and straight connection lines
+- ✅ **Full CRUD Operations** - Create, read, update, and delete devices and links via web UI
+- ✅ **Custom Device Icons** - Upload PNG/JPG/SVG images for custom device representations
+- ✅ **Dummy Node Support** - Add external/ISP equipment without monitoring requirements
+- ✅ **Color-Coded Utilization** - Green (<50%), Yellow (50-80%), Red (>80%) link indicators
+- ✅ **Bandwidth Visualization** - Real-time inbound/outbound traffic display on each link
+- ✅ **Persistent Viewport** - Zoom and pan state preserved across page reloads
+- ✅ **Professional UI** - Modern, responsive design with modal forms
+- ✅ **Systemd Service** - Production-ready service management
+- ✅ **One-Command Install** - Automated installation script for easy deployment
 
 ### Tech Stack
-- **Backend**: Django 6.0, Django REST Framework
+- **Backend**: Django 5.0, Django REST Framework
 - **Frontend**: Cytoscape.js, Vanilla JavaScript
-- **Database**: SQLite (development) / PostgreSQL (planned for production)
+- **Database**: SQLite (development) / PostgreSQL (production ready)
 - **Monitoring**: Prometheus, SNMP Exporter
 - **Deployment**: systemd service
+- **Network Protocols**: SNMP v2c/v3
 
 ## 📋 Prerequisites
 
-- Ubuntu 24.04 LTS (or similar)
+- Ubuntu 24.04 LTS (or similar Debian-based distro)
 - Python 3.12+
 - Prometheus server with SNMP Exporter
 - Network devices with SNMP enabled
-- sudo/root access for systemd service
+- sudo/root access for systemd service installation
 
-## 🔧 Installation
+## 🔧 Quick Installation
 
-### 1. Clone Repository
+### Automated Install (Recommended)
+```bash
+git clone https://github.com/Dubzyy/netmap.git
+cd netmap
+./install.sh
+```
+
+The install script will:
+- Install system dependencies (Python, PostgreSQL, etc.)
+- Create Python virtual environment
+- Install Python packages
+- Run database migrations
+- Create systemd service
+- Start NetMap automatically
+
+After installation, access NetMap at: `http://your-server-ip:8000`
+
+### Manual Installation
+
+#### 1. Clone Repository
 ```bash
 git clone https://github.com/Dubzyy/netmap.git
 cd netmap
 ```
 
-### 2. Backend Setup
+#### 2. Backend Setup
 ```bash
 cd backend
 
@@ -57,75 +81,72 @@ pip install -r requirements.txt
 # Run migrations
 python manage.py migrate
 
-# Create admin user
+# Create admin user (optional - for Django admin)
 python manage.py createsuperuser
 ```
 
-### 3. Configuration
+#### 3. Configuration
 
 Edit `backend/netmap/settings.py`:
 ```python
-# Update these settings
+# Update these settings for your environment
 ALLOWED_HOSTS = ['your-server-ip', 'localhost', '127.0.0.1']
 PROMETHEUS_URL = 'http://your-prometheus-server:9090'
 ```
 
-### 4. Add Devices
-
-Access Django admin at `http://your-server:8000/admin` and add:
-- Devices (firewalls, switches, routers, etc.)
-- Links (connections between devices)
-- Configure Prometheus instance names to match your metrics
-
-### 5. Run Development Server
+#### 4. Run Development Server
 ```bash
 python manage.py runserver 0.0.0.0:8000
 ```
 
 Visit: `http://your-server:8000`
 
-## 🐳 Production Deployment (Coming Soon)
+## 🐳 Production Deployment
 
-### Systemd Service
+### Systemd Service (Included)
 
-Create `/etc/systemd/system/netmap.service`:
-```ini
-[Unit]
-Description=NetMap Network Topology Visualizer
-After=network.target
-
-[Service]
-Type=simple
-User=netmap
-WorkingDirectory=/home/netmap/netmap/backend
-Environment="PATH=/home/netmap/netmap/backend/venv/bin"
-ExecStart=/home/netmap/netmap/backend/venv/bin/python manage.py runserver 0.0.0.0:8000
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
+The systemd service is automatically created by `install.sh`. Manual setup:
+```bash
+sudo systemctl start netmap    # Start service
+sudo systemctl stop netmap     # Stop service
+sudo systemctl restart netmap  # Restart service
+sudo systemctl status netmap   # Check status
+sudo journalctl -u netmap -f   # View logs
 ```
 
-Enable and start:
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable netmap
-sudo systemctl start netmap
+Service file location: `/etc/systemd/system/netmap.service`
+
+### Nginx Reverse Proxy (Recommended)
+
+Example Nginx configuration:
+```nginx
+server {
+    listen 80;
+    server_name netmap.yourdomain.com;
+
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
 ```
 
 ## 📊 Prometheus Configuration
 
-NetMap expects these SNMP metrics to be available:
+NetMap requires Prometheus with SNMP Exporter to collect network metrics.
+
+### Example Prometheus Scrape Config
 ```yaml
-# Example Prometheus scrape config
 scrape_configs:
   - job_name: 'snmp'
     static_configs:
       - targets:
-        - 10.10.1.254  # Firewall
-        - 10.10.100.1  # Switch
-        - 10.10.50.1   # Hypervisor 1
-        - 10.10.1.1    # Hypervisor 2
+        - 10.10.1.254    # Juniper SRX340
+        - 10.10.100.1    # Cisco 3750x
+        - 10.10.50.1     # R730-KVM-1
+        - 10.10.1.1      # R320-KVM-2
     metrics_path: /snmp
     params:
       module: [if_mib]
@@ -138,76 +159,136 @@ scrape_configs:
         replacement: snmp-exporter:9116
 ```
 
-## 🎨 Usage
+### SNMP Exporter Configuration
+NetMap uses standard IF-MIB metrics:
+- `ifHCInOctets` - High-capacity inbound octets (counter)
+- `ifHCOutOctets` - High-capacity outbound octets (counter)
+- `ifHighSpeed` - Interface speed in Mbps
+- `ifOperStatus` - Operational status
+
+## 🎨 Usage Guide
 
 ### Adding Devices
-1. Click **"Add Device"** button
-2. Fill in device details
-3. Upload custom icon (optional)
-4. Set Prometheus instance name if monitored
-5. Uncheck "Has Prometheus Metrics" for dummy nodes
+1. Click **"➕ Add Device"** in the toolbar
+2. Enter device details:
+   - **Name**: Display name (e.g., "Juniper SRX340")
+   - **Type**: Device category (Firewall, Switch, Router, etc.)
+   - **IP Address**: Management IP
+   - **Prometheus Instance**: Must match Prometheus target (e.g., "10.10.1.254:161")
+   - **Has Prometheus Metrics**: Uncheck for dummy/external nodes
+3. Optionally upload a custom icon (PNG/JPG/SVG)
+4. Click **"Create Device"**
 
 ### Adding Links
-1. Click **"Add Link"** button
-2. Select source and target devices
-3. Enter interface names (e.g., ae0, bond0)
-4. Set bandwidth capacity in Mbps
+1. Click **"🔗 Add Link"** in the toolbar
+2. Select source and target devices from dropdowns
+3. Enter interface names (e.g., `ae0`, `bond0`, `GigabitEthernet0/1`)
+4. Set bandwidth capacity in Mbps (e.g., `1000` for 1 Gbps)
+5. Click **"Create Link"**
 
-### Viewing Metrics
-- Click on any link to see bandwidth details
-- Click on devices to see information
-- Green links = <50% utilization
-- Yellow links = 50-80% utilization
-- Red links = >80% utilization
+### Editing Devices and Links
+1. Click on any device or link to view details
+2. Click the **"✏️ Edit"** button in the info panel
+3. Modify any fields
+4. Click **"Save Changes"**
+
+### Deleting Resources
+1. Click on the device or link
+2. Click **"🗑️ Delete"** button
+3. Confirm deletion
+
+### Viewing Real-Time Metrics
+- **Link Metrics**: Click any link to see:
+  - Inbound/Outbound bandwidth (Mbps)
+  - Link capacity
+  - Utilization percentage
+  - Color indicator: 🟢 Green (<50%), 🟡 Yellow (50-80%), 🔴 Red (>80%)
+
+- **Device Info**: Click any device to see:
+  - Device type
+  - IP address
+  - Monitoring status
+
+### UI Controls
+- **🔄 Refresh**: Manually refresh topology
+- **🎯 Fit View**: Center and fit all nodes on screen
+- **🔍 Zoom In/Out**: Adjust zoom level
+- **📐 Curved/Straight Lines**: Toggle line style
+- **🌙/☀️ Dark Mode**: Switch between themes
+
+### Keyboard Shortcuts
+- **Drag nodes**: Reposition devices (positions are saved automatically)
+- **Scroll**: Zoom in/out
+- **Click + Drag**: Pan the canvas
 
 ## 🚧 Known Limitations
 
-- **No Authentication** - Currently no user login system
-- **No Input Validation** - Form inputs not sanitized
-- **SQLite Database** - Not suitable for production scale
+- **No Authentication** - Currently no user login system (use network-level security)
+- **No Input Validation** - Form inputs not fully sanitized
 - **No Rate Limiting** - API endpoints unprotected
-- **No TLS/SSL** - HTTP only (use reverse proxy)
-- **Limited Error Handling** - Some edge cases not covered
+- **No TLS/SSL Built-in** - HTTP only (use reverse proxy with SSL)
+- **SQLite Default** - Works fine for small deployments, PostgreSQL recommended for production
 - **No Backup System** - Database backups not automated
-- **Single Server** - No high availability or clustering
+- **Single Server** - No clustering or high availability
 
 ## 📝 TODO List
 
 ### High Priority
 - [ ] Implement user authentication and authorization
 - [ ] Add comprehensive input validation and sanitization
-- [ ] Migrate to PostgreSQL for production
 - [ ] Write unit and integration tests
 - [ ] Add proper error handling and logging
 - [ ] Implement API rate limiting
-- [ ] Add CSRF protection enhancements
+- [ ] API documentation (Swagger/OpenAPI)
 
 ### Medium Priority
-- [ ] Docker containerization
-- [ ] Nginx reverse proxy with SSL/TLS
-- [ ] API documentation (Swagger/OpenAPI)
-- [ ] Historical bandwidth graphs
+- [ ] Docker containerization with docker-compose
+- [ ] Historical bandwidth graphs (time-series visualization)
 - [ ] Export topology as PNG/SVG
-- [ ] Bulk device import (CSV)
-- [ ] Alerting system for high utilization
+- [ ] Bulk device import (CSV/JSON)
+- [ ] Alerting system (email/Slack) for high utilization
+- [ ] Multi-topology support (save different views)
 
 ### Low Priority
-- [ ] Multiple topology views
-- [ ] Dark/light theme toggle
-- [ ] Mobile-responsive improvements
-- [ ] Websocket for real-time updates
+- [ ] WebSocket for real-time updates (no refresh needed)
 - [ ] Multi-tenant support
 - [ ] Custom dashboard widgets
-- [ ] Scheduled reports
+- [ ] Scheduled reports (PDF/email)
+- [ ] Mobile app (React Native)
+
+### Completed ✅
+- [x] Dark/light theme toggle
+- [x] Edit functionality for devices and links
+- [x] Curved/straight line toggle
+- [x] Viewport persistence
+- [x] Node position saving
+- [x] Systemd service
+- [x] Color-coded link utilization
+- [x] One-command installation script
 
 ## 🤝 Contributing
 
-This is a personal learning project, but contributions are welcome! Please:
+Contributions are welcome! This project follows standard Git workflow:
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+Please ensure your code follows:
+- PEP 8 style guide for Python
+- ESLint standards for JavaScript
+- Include descriptive commit messages
+
+## 🐛 Bug Reports
+
+Found a bug? Please open an issue with:
+- Clear description of the problem
+- Steps to reproduce
+- Expected vs actual behavior
+- Screenshots (if applicable)
+- Environment details (OS, Python version, browser)
 
 ## 📄 License
 
@@ -215,31 +296,49 @@ MIT License - See [LICENSE](LICENSE) file for details
 
 ## 👤 Author
 
-**Hunter** - NOC Engineer  
+**Hunter** - NOC Engineer @ NetActuate  
+Network automation enthusiast and homelab operator
+
 - GitHub: [@Dubzyy](https://github.com/Dubzyy)
 - Portfolio: [portfolio.vrhost.org](https://portfolio.vrhost.org)
+- LinkedIn: [linkedin.com/in/hunter-your-profile](https://linkedin.com/in/hunter-your-profile)
 
 ## 🙏 Acknowledgments
 
-- Built with [Django](https://www.djangoproject.com/)
-- Visualization powered by [Cytoscape.js](https://js.cytoscape.org/)
-- Metrics from [Prometheus](https://prometheus.io/)
-- Inspired by professional network monitoring tools
+- **[Django](https://www.djangoproject.com/)** - High-level Python web framework
+- **[Django REST Framework](https://www.django-rest-framework.org/)** - Powerful REST API toolkit
+- **[Cytoscape.js](https://js.cytoscape.org/)** - Graph theory visualization library
+- **[Prometheus](https://prometheus.io/)** - Monitoring and alerting toolkit
+- **[SNMP Exporter](https://github.com/prometheus/snmp_exporter)** - SNMP metrics for Prometheus
+- Inspired by enterprise tools like SolarWinds NPM, PRTG, and LibreNMS
 
-## ⚠️ Security Notice
+## 📸 Screenshots
+
+*Coming Soon - Screenshots of the interface will be added here*
+
+## 🔒 Security Notice
 
 **DO NOT USE IN PRODUCTION WITHOUT:**
-- Implementing authentication and authorization
-- Adding input validation and sanitization
-- Configuring SSL/TLS encryption
-- Setting up proper firewall rules
-- Regular security audits and updates
-- Following OWASP security best practices
+- ✅ Implementing authentication and authorization
+- ✅ Adding input validation and sanitization  
+- ✅ Configuring SSL/TLS encryption (via reverse proxy)
+- ✅ Setting up proper firewall rules
+- ✅ Regular security audits and updates
+- ✅ Following OWASP security best practices
+- ✅ Restricting network access to trusted IPs
 
-This project is for educational and development purposes. The author assumes no liability for security vulnerabilities or data loss.
+This project is intended for internal use within trusted networks. The author assumes no liability for security vulnerabilities, data loss, or network issues arising from use of this software.
+
+## 📞 Support
+
+For questions or support:
+- Open an issue on GitHub
+- Check existing issues for solutions
+- Review the code and inline documentation
 
 ---
 
 **Development Status**: Active Development 🚧  
-**Last Updated**: December 15, 2025  
-**Version**: 0.1.0-alpha
+**Last Updated**: December 16, 2025  
+**Version**: 0.2.0-alpha  
+**Stability**: Pre-release (Not Production Ready)
