@@ -148,3 +148,25 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.AllowAny',
     ],
 }
+
+# Docker/Production settings
+if os.environ.get('DOCKER_DEPLOYMENT'):
+    DEBUG = False
+    
+    # Database
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('POSTGRES_DB', 'netmap'),
+            'USER': os.environ.get('POSTGRES_USER', 'netmap'),
+            'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'netmap'),
+            'HOST': os.environ.get('POSTGRES_HOST', 'db'),
+            'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+        }
+    }
+    
+    # Security
+    ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
+    
+    # Prometheus URL
+    PROMETHEUS_URL = os.environ.get('PROMETHEUS_URL', 'http://prometheus:9090')

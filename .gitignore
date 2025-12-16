@@ -34,3 +34,9 @@ build/
 
 # Docker
 docker-compose.override.yml
+.env
+*.pyc
+__pycache__/
+db.sqlite3
+venv/
+staticfiles/

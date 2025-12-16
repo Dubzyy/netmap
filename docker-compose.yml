@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: netmap-db
+    environment:
+      POSTGRES_DB: netmap
+      POSTGRES_USER: netmap
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-netmap_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - netmap-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U netmap"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  netmap:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: netmap-app
+    environment:
+      DOCKER_DEPLOYMENT: "true"
+      POSTGRES_DB: netmap
+      POSTGRES_USER: netmap
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-netmap_password}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      PROMETHEUS_URL: http://prometheus:9090
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - netmap-network
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: netmap-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - static_volume:/app/staticfiles
+    depends_on:
+      - netmap
+    networks:
+      - netmap-network
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: netmap-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - netmap-network
+    restart: unless-stopped
+
+  snmp-exporter:
+    image: prom/snmp-exporter:latest
+    container_name: netmap-snmp-exporter
+    command:
+      - '--config.file=/etc/snmp_exporter/snmp.yml'
+    ports:
+      - "9116:9116"
+    volumes:
+      - ./snmp_exporter.yml:/etc/snmp_exporter/snmp.yml:ro
+    networks:
+      - netmap-network
+    restart: unless-stopped
+
+networks:
+  netmap-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  static_volume:
