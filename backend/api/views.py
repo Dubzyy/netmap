@@ -1,3 +1,4 @@
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -63,6 +64,7 @@ def get_topology(request):
         'timestamp': metrics.get('timestamp') if edges else None
     })
 
+@csrf_exempt
 @api_view(['POST'])
 def update_device_position(request, device_id):
     """Save device position when dragged"""

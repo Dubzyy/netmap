@@ -140,3 +140,11 @@ REST_FRAMEWORK = {
 
 # Prometheus URL (from environment or default)
 PROMETHEUS_URL = 'http://10.10.1.7:9090'
+
+# Django REST Framework settings
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
+}
