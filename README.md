@@ -5,7 +5,7 @@
 
 A real-time network topology visualizer with live bandwidth monitoring powered by Prometheus and SNMP metrics. Built for network engineers and NOC teams to visualize and monitor their infrastructure.
 
-![NetMap Screenshot](https://via.placeholder.com/800x400/0f172a/ffffff?text=NetMap+Network+Topology+Visualizer)
+![NetMap Screenshot](docs/images/netmap-screenshot.png)
 
 ## 🚀 Features
 

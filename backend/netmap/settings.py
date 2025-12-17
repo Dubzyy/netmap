@@ -20,13 +20,22 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-l_zc7kel*nkao^2&mn()%=s48q1loqt29g+ut%laij1d+c=ko#'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-CHANGE-THIS-IN-PRODUCTION')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['10.10.1.8', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
+# Trust reverse proxy
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Override settings with local config if it exists
+try:
+    from .settings_local import *
+except ImportError:
+    pass
 
 # Application definition
 
@@ -139,7 +148,7 @@ REST_FRAMEWORK = {
 }
 
 # Prometheus URL (from environment or default)
-PROMETHEUS_URL = 'http://10.10.1.7:9090'
+PROMETHEUS_URL = os.environ.get('PROMETHEUS_URL', 'http://localhost:9090')
 
 # Django REST Framework settings
 REST_FRAMEWORK = {
