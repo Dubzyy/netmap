@@ -12,15 +12,18 @@ A real-time network topology visualizer with live bandwidth monitoring powered b
 ### Current Capabilities
 - ✅ **Real-Time Monitoring** - Live bandwidth metrics from Prometheus/SNMP with 30-second auto-refresh
 - ✅ **Interactive Topology** - Drag-and-drop network diagram with persistent node positioning
-- ✅ **Dark Mode** - Beautiful dark theme with smooth transitions and theme persistence
+- ✅ **Modern Glassmorphism UI** - Beautiful gradient header, custom fonts (Inter + JetBrains Mono), and professional design
+- ✅ **Custom Device Icons** - Upload and edit PNG/JPG/SVG images with transparent backgrounds
+- ✅ **Smart Icon Display** - Text labels positioned below custom icons for optimal readability
+- ✅ **Dark Mode Optimized** - Professional dark theme designed for NOC environments
 - ✅ **Curved/Straight Lines** - Toggle between curved bezier and straight connection lines
 - ✅ **Full CRUD Operations** - Create, read, update, and delete devices and links via web UI
-- ✅ **Custom Device Icons** - Upload PNG/JPG/SVG images for custom device representations
+- ✅ **Icon Edit Support** - Change device icons anytime through the edit modal
 - ✅ **Dummy Node Support** - Add external/ISP equipment without monitoring requirements
-- ✅ **Color-Coded Utilization** - Green (<50%), Yellow (50-80%), Red (>80%) link indicators
+- ✅ **Vibrant Link Colors** - Green for normal traffic, yellow for moderate, red for high utilization
+- ✅ **Enhanced Edge Connections** - Links properly connect to node boundaries
 - ✅ **Bandwidth Visualization** - Real-time inbound/outbound traffic display on each link
 - ✅ **Persistent Viewport** - Zoom and pan state preserved across page reloads
-- ✅ **Professional UI** - Modern, responsive design with modal forms
 - ✅ **Systemd Service** - Production-ready service management
 - ✅ **One-Command Install** - Automated installation script for easy deployment
 
@@ -324,17 +327,22 @@ Make sure your network devices have SNMP enabled and accessible from your Promet
 - [ ] Integration with other monitoring tools (LibreNMS, Zabbix)
 
 ### Completed ✅
+- [x] Modern glassmorphism UI with gradient effects and custom typography
+- [x] Custom device icon upload and edit functionality
+- [x] Transparent icon backgrounds for clean visualization
+- [x] Smart text positioning below custom icons
+- [x] Vibrant green links for low/normal traffic visualization
 - [x] Dark/light theme toggle with persistence
-- [x] Edit functionality for devices and links
+- [x] Edit functionality for devices and links (including icon updates)
 - [x] Curved/straight line toggle
 - [x] Viewport persistence across sessions
 - [x] Node position saving on drag
 - [x] Systemd service for production
 - [x] Color-coded link utilization
 - [x] One-command installation script
-- [x] Custom device icons
 - [x] Dummy node support
 - [x] Full REST API with CRUD operations
+- [x] Edge connections aligned to node boundaries
 
 ## 🤝 Contributing
 
@@ -431,9 +439,9 @@ Need help? Here's how to get support:
 <div align="center">
 
 **Development Status**: 🚧 Active Development  
-**Version**: 0.2.0-alpha  
+**Version**: 0.3.0-alpha  
 **Stability**: Pre-release (Not Production Ready)  
-**Last Updated**: December 17, 2024
+**Last Updated**: December 18, 2025
 
 Made with ❤️ for the network engineering community
 
