@@ -159,3 +159,9 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.AllowAny',
     ],
 }
+
+# Override settings with local config if it exists
+try:
+    from .settings_local import *
+except ImportError:
+    pass
