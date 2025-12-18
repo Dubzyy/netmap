@@ -35,3 +35,4 @@ build/
 # Docker
 docker-compose.override.yml
 backend/netmap/settings_local.py
+backend/templates/*.backup

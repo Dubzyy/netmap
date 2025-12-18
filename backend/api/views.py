@@ -24,6 +24,7 @@ def get_topology(request):
             'type': device.device_type,
             'ip': device.ip_address,
             'is_monitored': device.is_monitored,
+            'prometheus_instance': device.prometheus_instance,
             'icon': device.icon,
             'position': {'x': device.position_x, 'y': device.position_y}
         })
@@ -34,7 +35,7 @@ def get_topology(request):
         # Get metrics from whichever device is monitored
         metrics = {'inbound': 0, 'outbound': 0, 'timestamp': None}
         utilization = 0
-        
+
         if link.source_device.is_monitored and link.source_device.prometheus_instance:
             # Query source device
             metrics = prom.get_interface_bandwidth(
@@ -82,6 +83,28 @@ def update_device_position(request, device_id):
         device.position_y = request.data.get('y', device.position_y)
         device.save()
         return Response({'status': 'ok'})
+    except Device.DoesNotExist:
+        return Response({'error': 'Device not found'}, status=status.HTTP_404_NOT_FOUND)
+
+@csrf_exempt
+@api_view(['PUT'])
+def update_device(request, device_id):
+    """Update a device"""
+    try:
+        device = Device.objects.get(id=device_id)
+        device.name = request.data.get('name', device.name)
+        device.device_type = request.data.get('device_type', device.device_type)
+        device.ip_address = request.data.get('ip_address', device.ip_address)
+        device.prometheus_instance = request.data.get('prometheus_instance', device.prometheus_instance)
+        device.is_monitored = request.data.get('is_monitored', device.is_monitored)
+
+        # Handle icon updates
+        if 'icon' in request.data:
+            device.icon = request.data.get('icon')
+
+        device.save()
+        serializer = DeviceSerializer(device)
+        return Response(serializer.data)
     except Device.DoesNotExist:
         return Response({'error': 'Device not found'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -136,22 +159,6 @@ def delete_link(request, link_id):
         return Response({'status': 'deleted'}, status=status.HTTP_204_NO_CONTENT)
     except Link.DoesNotExist:
         return Response({'error': 'Link not found'}, status=status.HTTP_404_NOT_FOUND)
-
-@api_view(['PUT'])
-def update_device(request, device_id):
-    """Update a device"""
-    try:
-        device = Device.objects.get(id=device_id)
-        device.name = request.data.get('name', device.name)
-        device.device_type = request.data.get('device_type', device.device_type)
-        device.ip_address = request.data.get('ip_address', device.ip_address)
-        device.prometheus_instance = request.data.get('prometheus_instance', device.prometheus_instance)
-        device.is_monitored = request.data.get('is_monitored', device.is_monitored)
-        device.save()
-        serializer = DeviceSerializer(device)
-        return Response(serializer.data)
-    except Device.DoesNotExist:
-        return Response({'error': 'Device not found'}, status=status.HTTP_404_NOT_FOUND)
 
 @api_view(['PUT'])
 def update_link(request, link_id):

@@ -1,46 +1,41 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NetMap - Network Topology Visualizer</title>
+    <title>NetMap - Network Topology Monitor</title>
     <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #ffffff;
-            --bg-secondary: #f8f9fa;
-            --bg-panel: rgba(255, 255, 255, 0.98);
-            --text-primary: #1f2937;
-            --text-secondary: #6b7280;
-            --border-color: #e5e7eb;
-            --border-light: #d1d5db;
-            --shadow: rgba(0, 0, 0, 0.1);
-            --shadow-lg: rgba(0, 0, 0, 0.15);
-        }
-
-        [data-theme="dark"] {
-            --bg-primary: #0f172a;
-            --bg-secondary: #1e293b;
-            --bg-panel: rgba(30, 41, 59, 0.98);
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --border-color: #334155;
-            --border-light: #475569;
-            --shadow: rgba(0, 0, 0, 0.3);
-            --shadow-lg: rgba(0, 0, 0, 0.5);
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-panel: rgba(30, 41, 59, 0.95);
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-tertiary: #64748b;
+            --border-color: rgba(148, 163, 184, 0.1);
+            --accent-primary: #3b82f6;
+            --accent-success: #10b981;
+            --accent-danger: #ef4444;
+            --accent-warning: #f59e0b;
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+            --font-display: 'Inter', -apple-system, system-ui, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-family: var(--font-display);
             overflow: hidden;
             background: var(--bg-secondary);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
         }
 
         #cy {
@@ -50,215 +45,335 @@
         }
 
         .toolbar {
-            position: absolute; top: 0; left: 0; right: 0;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
             background: var(--bg-panel);
-            box-shadow: 0 2px 8px var(--shadow);
-            padding: 12px 20px;
+            backdrop-filter: blur(12px);
+            box-shadow: var(--shadow-lg);
+            padding: 1rem 2rem;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 0.75rem;
             z-index: 100;
             border-bottom: 1px solid var(--border-color);
         }
 
+        .toolbar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent-primary), #8b5cf6);
+            opacity: 0.5;
+        }
+
         .toolbar h1 {
-            color: var(--text-primary);
-            font-size: 18px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-primary), #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
             margin-right: auto;
+            letter-spacing: -0.5px;
         }
 
         .btn {
-            background: #3b82f6; color: white; border: none;
-            padding: 8px 16px; border-radius: 6px; cursor: pointer;
-            font-size: 13px; font-weight: 600; transition: all 0.2s;
-            box-shadow: 0 1px 3px var(--shadow);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--accent-primary);
+            color: white;
+            border: none;
+            padding: 0.625rem 1.125rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            font-family: var(--font-display);
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
         }
 
         .btn:hover {
             background: #2563eb;
             transform: translateY(-1px);
-            box-shadow: 0 2px 6px var(--shadow-lg);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
         }
 
-        .btn-success { background: #10b981; }
-        .btn-success:hover { background: #059669; }
-        .btn-danger { background: #ef4444; }
-        .btn-danger:hover { background: #dc2626; }
-        .btn-secondary { background: #6b7280; }
-        .btn-secondary:hover { background: #4b5563; }
+        .btn-success {
+            background: var(--accent-success);
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-success:hover {
+            background: #059669;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-danger {
+            background: var(--accent-danger);
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(30, 41, 59, 0.8);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            box-shadow: none;
+        }
+
+        .btn-secondary:hover {
+            background: #1e293b;
+            border-color: var(--accent-primary);
+        }
 
         .panel {
-            position: absolute; top: 70px;
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            width: 380px;
             background: var(--bg-panel);
-            box-shadow: 0 4px 12px var(--shadow-lg);
-            border-radius: 10px; padding: 20px;
-            color: var(--text-primary);
-            max-height: calc(100vh - 90px);
-            overflow-y: auto; z-index: 50;
-            border: 1px solid var(--border-color);
-        }
-
-        .panel-right { right: 20px; width: 320px; }
-        .panel h3 {
-            margin: 0 0 15px 0;
-            font-size: 16px;
-            color: var(--text-primary);
-        }
-
-        .stat { margin: 8px 0; font-size: 14px; }
-        .stat-label { color: var(--text-secondary); }
-        .stat-value { color: #10b981; font-weight: 600; }
-
-        .form-group { margin-bottom: 15px; }
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-size: 13px;
-            color: var(--text-secondary);
-        }
-
-        .form-group input, .form-group select {
-            width: 100%; padding: 8px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-light);
-            border-radius: 6px;
-            color: var(--text-primary);
-            font-size: 13px;
-        }
-
-        .form-group input:focus, .form-group select:focus {
-            outline: none;
-            border-color: #3b82f6;
-            background: var(--bg-primary);
-        }
-
-        .checkbox-group { display: flex; align-items: center; gap: 8px; }
-        .checkbox-group input { width: auto; }
-
-        .file-input-wrapper {
-            position: relative; overflow: hidden;
-            display: inline-block; width: 100%;
-        }
-
-        .file-input-wrapper input[type=file] {
-            position: absolute; left: -9999px;
-        }
-
-        .file-input-label {
-            display: block; padding: 10px;
-            background: var(--bg-secondary);
-            border: 2px dashed var(--border-light);
-            border-radius: 6px; text-align: center;
-            cursor: pointer; transition: all 0.2s;
-            color: var(--text-secondary);
-        }
-
-        .file-input-label:hover {
-            border-color: #3b82f6;
-            background: var(--bg-primary);
-            color: #3b82f6;
-        }
-
-        .image-preview {
-            margin-top: 10px; text-align: center;
-        }
-
-        .image-preview img {
-            max-width: 150px; max-height: 150px;
-            border-radius: 8px;
-            border: 2px solid var(--border-color);
-        }
-
-        .legend {
-            position: absolute; bottom: 20px; left: 20px;
-            background: var(--bg-panel);
-            box-shadow: 0 4px 12px var(--shadow-lg);
-            border-radius: 10px; padding: 15px;
-            color: var(--text-primary);
+            backdrop-filter: blur(12px);
+            box-shadow: var(--shadow-lg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
             z-index: 50;
             border: 1px solid var(--border-color);
         }
 
-        .legend-item {
-            display: flex; align-items: center;
-            margin: 5px 0; font-size: 13px;
+        .panel h3 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-tertiary);
+            margin-bottom: 1rem;
         }
 
-        .legend-icon {
-            width: 24px; height: 24px;
-            margin-right: 10px; border-radius: 4px;
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.875rem;
+        }
+
+        .stat:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+        }
+
+        .stat-value {
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            font-weight: 600;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            font-family: var(--font-display);
+            transition: all 0.2s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .checkbox-group input {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-input-label {
+            display: block;
+            padding: 1rem;
+            background: rgba(15, 23, 42, 0.5);
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .file-input-label:hover {
+            border-color: var(--accent-primary);
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--accent-primary);
+        }
+
+        .image-preview {
+            margin-top: 1rem;
+            text-align: center;
+        }
+
+        .image-preview img {
+            max-width: 150px;
+            max-height: 150px;
+            border-radius: 8px;
+            border: 2px solid var(--border-color);
         }
 
         .modal {
-            display: none; position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.5); z-index: 200;
-            align-items: center; justify-content: center;
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
         }
 
-        .modal.active { display: flex; }
+        .modal.active {
+            display: flex;
+        }
 
         .modal-content {
-            background: var(--bg-panel);
-            border-radius: 10px;
-            padding: 30px; max-width: 500px; width: 90%;
-            color: var(--text-primary);
-            max-height: 90vh; overflow-y: auto;
-            box-shadow: 0 20px 60px var(--shadow-lg);
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-lg);
             border: 1px solid var(--border-color);
         }
 
         .modal-header {
-            display: flex; justify-content: space-between;
-            align-items: center; margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
         }
 
         .modal-header h2 {
-            font-size: 20px;
-            margin: 0;
-            color: var(--text-primary);
+            font-size: 1.25rem;
+            font-weight: 600;
         }
 
         .close-btn {
-            background: none; border: none;
-            color: var(--text-secondary);
-            font-size: 24px; cursor: pointer;
+            background: none;
+            border: none;
+            color: var(--text-tertiary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .close-btn:hover {
+            background: rgba(30, 41, 59, 0.5);
+            color: var(--text-primary);
         }
 
         .form-actions {
-            display: flex; gap: 10px; margin-top: 20px;
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
         }
     </style>
 </head>
 <body>
     <div class="toolbar">
-        <h1>🗺️ NetMap</h1>
+        <h1>⚡ NetMap</h1>
         <button class="btn" onclick="loadTopology()">🔄 Refresh</button>
         <button class="btn btn-success" onclick="showAddDeviceModal()">➕ Add Device</button>
         <button class="btn btn-success" onclick="showAddLinkModal()">🔗 Add Link</button>
         <button class="btn btn-secondary" onclick="cy.fit()">🎯 Fit View</button>
-        <button class="btn btn-secondary" onclick="cy.zoom(cy.zoom() * 1.2); cy.center()">🔍 Zoom In</button>
-        <button class="btn btn-secondary" onclick="cy.zoom(cy.zoom() * 0.8); cy.center()">🔍 Zoom Out</button>
-        <button class="btn btn-secondary" id="line-toggle-btn" onclick="toggleCurvedLines()">📐 Straight Lines</button>
-        <button class="btn btn-secondary" onclick="toggleDarkMode()"><span id="theme-icon">🌙</span></button>
+        <button class="btn btn-secondary" onclick="cy.zoom(cy.zoom() * 1.2); cy.center()">🔍+</button>
+        <button class="btn btn-secondary" onclick="cy.zoom(cy.zoom() * 0.8); cy.center()">🔍-</button>
+        <button class="btn btn-secondary" id="line-toggle-btn" onclick="toggleCurvedLines()">Curved</button>
     </div>
 
     <div id="cy"></div>
 
-    <div class="panel panel-right" id="info-panel">
-        <h3>Network Info</h3>
+    <div class="panel" id="info-panel">
+        <h3>Network Overview</h3>
         <div id="details">
-            <div class="stat">Click on devices or links for details</div>
+            <div class="stat">
+                <span class="stat-label">Click on devices or links for details</span>
+            </div>
         </div>
-    </div>
-
-    <div class="legend">
-        <div class="legend-item"><div class="legend-icon" style="background: #ef4444;">🔥</div><span>Firewall</span></div>
-        <div class="legend-item"><div class="legend-icon" style="background: #3b82f6;">🔀</div><span>Switch</span></div>
-        <div class="legend-item"><div class="legend-icon" style="background: #8b5cf6;">💻</div><span>Hypervisor</span></div>
-        <div class="legend-item"><div class="legend-icon" style="background: #10b981;">🖥️</div><span>Server</span></div>
-        <div class="legend-item"><div class="legend-icon" style="background: #f59e0b;">📡</div><span>Router</span></div>
-        <div class="legend-item"><div class="legend-icon" style="background: #6b7280;">🌐</div><span>ISP/External</span></div>
     </div>
 
     <div class="modal" id="add-device-modal">
@@ -270,7 +385,7 @@
             <form id="device-form" onsubmit="createDevice(event)">
                 <div class="form-group">
                     <label>Device Name *</label>
-                    <input type="text" id="device-name" required placeholder="e.g., ISP Router">
+                    <input type="text" id="device-name" required>
                 </div>
                 <div class="form-group">
                     <label>Device Type *</label>
@@ -280,7 +395,7 @@
                         <option value="router">Router</option>
                         <option value="hypervisor">Hypervisor</option>
                         <option value="server">Server</option>
-                        <option value="isp">ISP Equipment</option>
+                        <option value="isp">ISP/External</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -295,15 +410,15 @@
                 </div>
                 <div class="form-group">
                     <label>IP Address *</label>
-                    <input type="text" id="device-ip" required placeholder="e.g., 192.168.1.1">
+                    <input type="text" id="device-ip" required>
                 </div>
                 <div class="form-group">
-                    <label>Prometheus Instance (optional)</label>
-                    <input type="text" id="device-prometheus" placeholder="Leave blank for dummy nodes">
+                    <label>Prometheus Instance</label>
+                    <input type="text" id="device-prometheus">
                 </div>
                 <div class="form-group checkbox-group">
                     <input type="checkbox" id="device-monitored" checked>
-                    <label for="device-monitored" style="margin: 0;">Has Prometheus Metrics</label>
+                    <label style="margin: 0;">Has Prometheus Metrics</label>
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-success">Create Device</button>
@@ -326,7 +441,7 @@
                 </div>
                 <div class="form-group">
                     <label>Source Interface *</label>
-                    <input type="text" id="link-source-if" required placeholder="e.g., ae0">
+                    <input type="text" id="link-source-if" required>
                 </div>
                 <div class="form-group">
                     <label>Target Device *</label>
@@ -334,11 +449,11 @@
                 </div>
                 <div class="form-group">
                     <label>Target Interface *</label>
-                    <input type="text" id="link-target-if" required placeholder="e.g., bond0">
+                    <input type="text" id="link-target-if" required>
                 </div>
                 <div class="form-group">
                     <label>Bandwidth Capacity (Mbps) *</label>
-                    <input type="number" id="link-capacity" required placeholder="e.g., 1000">
+                    <input type="number" id="link-capacity" required>
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-success">Create Link</button>
@@ -368,20 +483,30 @@
                         <option value="router">Router</option>
                         <option value="hypervisor">Hypervisor</option>
                         <option value="server">Server</option>
-                        <option value="isp">ISP Equipment</option>
+                        <option value="isp">ISP/External</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label>Device Icon (Upload New Image)</label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="edit-device-icon-file" accept="image/png,image/jpeg,image/svg+xml" onchange="previewEditImage(event)">
+                        <label for="edit-device-icon-file" class="file-input-label">
+                            📁 Click to upload new icon (PNG, JPG, SVG)
+                        </label>
+                    </div>
+                    <div id="edit-image-preview" class="image-preview"></div>
                 </div>
                 <div class="form-group">
                     <label>IP Address *</label>
                     <input type="text" id="edit-device-ip" required>
                 </div>
                 <div class="form-group">
-                    <label>Prometheus Instance (optional)</label>
+                    <label>Prometheus Instance</label>
                     <input type="text" id="edit-device-prometheus">
                 </div>
                 <div class="form-group checkbox-group">
                     <input type="checkbox" id="edit-device-monitored">
-                    <label for="edit-device-monitored" style="margin: 0;">Has Prometheus Metrics</label>
+                    <label style="margin: 0;">Has Prometheus Metrics</label>
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-success">Save Changes</button>
@@ -421,37 +546,13 @@
 
     <script>
         let cy;
-        const API = '/api';  // Use relative URL
+        const API = '/api';
         let allDevices = [];
         let uploadedImageBase64 = '';
-        let useCurvedLines = true;
-
-        const deviceConfig = {
-            firewall: { color: '#ef4444', icon: '🔥' },
-            switch: { color: '#3b82f6', icon: '🔀' },
-            router: { color: '#f59e0b', icon: '📡' },
-            hypervisor: { color: '#8b5cf6', icon: '💻' },
-            server: { color: '#10b981', icon: '🖥️' },
-            isp: { color: '#6b7280', icon: '🌐' }
-        };
-
-        function loadPreferences() {
-            const savedCurved = localStorage.getItem('netmap-curved-lines');
-            if (savedCurved !== null) {
-                useCurvedLines = savedCurved === 'true';
-            }
-            updateLineToggleButton();
-
-            const savedTheme = localStorage.getItem('netmap-theme');
-            if (savedTheme === 'dark') {
-                document.documentElement.setAttribute('data-theme', 'dark');
-                document.getElementById('theme-icon').textContent = '☀️';
-            }
-        }
+        let useCurvedLines = localStorage.getItem('netmap-curved-lines') !== 'false';
 
         function updateLineToggleButton() {
-            const btn = document.getElementById('line-toggle-btn');
-            btn.innerHTML = useCurvedLines ? '📐 Straight Lines' : '📐 Curved Lines';
+            document.getElementById('line-toggle-btn').textContent = useCurvedLines ? 'Curved' : 'Straight';
         }
 
         function toggleCurvedLines() {
@@ -471,76 +572,6 @@
             }
         }
 
-        function toggleDarkMode() {
-            const currentTheme = document.documentElement.getAttribute('data-theme');
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-
-            document.documentElement.setAttribute('data-theme', newTheme);
-            localStorage.setItem('netmap-theme', newTheme);
-            document.getElementById('theme-icon').textContent = newTheme === 'dark' ? '☀️' : '🌙';
-
-            if (cy) {
-                const bgColor = newTheme === 'dark' ? '#0f172a' : '#ffffff';
-                const nodeBg = newTheme === 'dark' ? '#1e293b' : 'white';
-                const nodeBorder = newTheme === 'dark' ? '#475569' : '#d1d5db';
-                const nodeText = newTheme === 'dark' ? '#f1f5f9' : '#374151';
-
-                document.getElementById('cy').style.background = bgColor;
-
-                cy.nodes().forEach(node => {
-                    node.style({
-                        'background-color': nodeBg,
-                        'border-color': nodeBorder,
-                        'color': nodeText
-                    });
-                });
-
-                cy.edges().forEach(edge => {
-                    const bw = edge.data('bw');
-                    let color = newTheme === 'dark' ? '#94a3b8' : '#9ca3af';
-
-                    if (bw && bw.utilization) {
-                        if (bw.utilization > 80) {
-                            color = newTheme === 'dark' ? '#fca5a5' : '#ef4444';
-                        } else if (bw.utilization > 50) {
-                            color = newTheme === 'dark' ? '#fcd34d' : '#f59e0b';
-                        } else {
-                            color = newTheme === 'dark' ? '#6ee7b7' : '#10b981';
-                        }
-                    }
-
-                    edge.style({
-                        'line-color': color,
-                        'text-background-color': newTheme === 'dark' ? '#1e293b' : '#ffffff'
-                    });
-                });
-            }
-        }
-
-        function saveViewport() {
-            if (!cy) return;
-            const viewport = {
-                zoom: cy.zoom(),
-                pan: cy.pan()
-            };
-            localStorage.setItem('netmap-viewport', JSON.stringify(viewport));
-        }
-
-        function restoreViewport() {
-            const saved = localStorage.getItem('netmap-viewport');
-            if (saved && cy) {
-                try {
-                    const viewport = JSON.parse(saved);
-                    cy.viewport({
-                        zoom: viewport.zoom,
-                        pan: viewport.pan
-                    });
-                } catch (e) {
-                    console.error('Error restoring viewport:', e);
-                }
-            }
-        }
-
         function previewImage(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -554,6 +585,19 @@
             reader.readAsDataURL(file);
         }
 
+        function previewEditImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                uploadedImageBase64 = e.target.result;
+                document.getElementById('edit-image-preview').innerHTML =
+                    `<img src="${uploadedImageBase64}" alt="Preview">`;
+            };
+            reader.readAsDataURL(file);
+        }
+
         async function loadTopology() {
             try {
                 const res = await fetch(`${API}/topology/`);
@@ -562,9 +606,7 @@
                 const elements = [];
 
                 data.nodes.forEach(n => {
-                    const config = deviceConfig[n.type] || deviceConfig.server;
                     const hasCustomIcon = n.icon && n.icon.startsWith('data:image');
-
                     elements.push({
                         group: 'nodes',
                         data: {
@@ -573,10 +615,8 @@
                             type: n.type,
                             ip: n.ip,
                             is_monitored: n.is_monitored,
-                            prometheus_instance: n.prometheus_instance,
                             icon: hasCustomIcon ? n.icon : '',
-                            hasCustomIcon: hasCustomIcon,
-                            color: config.color
+                            hasCustomIcon: hasCustomIcon
                         },
                         position: n.position
                     });
@@ -604,55 +644,17 @@
                     cy.elements().remove();
                     cy.add(elements);
                     cy.layout({ name: 'preset' }).run();
-
-                    const theme = document.documentElement.getAttribute('data-theme');
-                    const isDark = theme === 'dark';
-
-                    const nodeBg = isDark ? '#1e293b' : 'white';
-                    const nodeBorder = isDark ? '#475569' : '#d1d5db';
-                    const nodeText = isDark ? '#f1f5f9' : '#374151';
-
-                    cy.nodes().forEach(node => {
-                        node.style({
-                            'background-color': nodeBg,
-                            'border-color': nodeBorder,
-                            'color': nodeText
-                        });
-                    });
-
-                    cy.edges().forEach(edge => {
-                        const bw = edge.data('bw');
-                        let color = isDark ? '#94a3b8' : '#9ca3af';
-
-                        if (bw && bw.utilization) {
-                            if (bw.utilization > 80) {
-                                color = isDark ? '#fca5a5' : '#ef4444';
-                            } else if (bw.utilization > 50) {
-                                color = isDark ? '#fcd34d' : '#f59e0b';
-                            } else {
-                                color = isDark ? '#6ee7b7' : '#10b981';
-                            }
-                        }
-
-                        edge.style('line-color', color);
-                    });
-
                     setTimeout(() => cy.viewport(viewport), 50);
                 }
 
-                updateInfoPanel(new Date().toLocaleTimeString(), data.nodes.length, data.edges.length);
+                document.getElementById('details').innerHTML = `
+                    <div class="stat"><span class="stat-label">Updated:</span> <span class="stat-value">${new Date().toLocaleTimeString()}</span></div>
+                    <div class="stat"><span class="stat-label">Devices:</span> <span class="stat-value">${data.nodes.length}</span></div>
+                    <div class="stat"><span class="stat-label">Links:</span> <span class="stat-value">${data.edges.length}</span></div>
+                `;
             } catch (e) {
                 console.error('Load error:', e);
-                document.getElementById('details').innerHTML = `<div style="color: #ef4444;">Error: ${e.message}</div>`;
             }
-        }
-
-        function updateInfoPanel(time, nodes, links) {
-            document.getElementById('details').innerHTML = `
-                <div class="stat"><span class="stat-label">Updated:</span> <span class="stat-value">${time}</span></div>
-                <div class="stat"><span class="stat-label">Nodes:</span> <span class="stat-value">${nodes}</span></div>
-                <div class="stat"><span class="stat-label">Links:</span> <span class="stat-value">${links}</span></div>
-            `;
         }
 
         function initCytoscape(elements) {
@@ -663,35 +665,35 @@
                     {
                         selector: 'node',
                         style: {
-                            'background-color': ele => {
-                                const theme = document.documentElement.getAttribute('data-theme');
-                                return theme === 'dark' ? '#1e293b' : 'white';
-                            },
-                            'background-opacity': 1,
+                            'background-color': ele => ele.data('hasCustomIcon') ? 'transparent' : '#1e293b',
+                            'background-opacity': ele => ele.data('hasCustomIcon') ? 0 : 1,
                             'background-image': ele => ele.data('hasCustomIcon') ? ele.data('icon') : 'none',
                             'background-fit': 'contain',
                             'background-clip': 'none',
-                            'border-width': 2,
-                            'border-color': ele => {
-                                const theme = document.documentElement.getAttribute('data-theme');
-                                return theme === 'dark' ? '#475569' : '#d1d5db';
-                            },
-                            'border-style': 'solid',
-                            'shape': 'roundrectangle',
+                            'border-width': ele => ele.data('hasCustomIcon') ? 0 : 2,
+                            'border-color': ele => ele.data('hasCustomIcon') ? 'transparent' : '#475569',
+                            'border-opacity': ele => ele.data('hasCustomIcon') ? 0 : 1,
                             'label': 'data(label)',
-                            'color': ele => {
-                                const theme = document.documentElement.getAttribute('data-theme');
-                                return theme === 'dark' ? '#f1f5f9' : '#374151';
-                            },
-                            'text-valign': 'center',
+                            'color': '#f1f5f9',
+                            'text-valign': ele => ele.data('hasCustomIcon') ? 'bottom' : 'center',
                             'text-halign': 'center',
+                            'text-margin-y': ele => ele.data('hasCustomIcon') ? 5 : 0,
                             'width': ele => ele.data('hasCustomIcon') ? 80 : 100,
                             'height': ele => ele.data('hasCustomIcon') ? 80 : 60,
                             'font-size': 12,
                             'font-weight': '600',
+                            'font-family': 'Inter, sans-serif',
+                            'shape': 'roundrectangle',
                             'text-wrap': 'wrap',
                             'text-max-width': 90,
-                            'padding': 10
+                            'padding': 0
+                        }
+                    },
+                    {
+                        selector: 'node:selected',
+                        style: {
+                            'border-width': 3,
+                            'border-color': '#3b82f6'
                         }
                     },
                     {
@@ -700,21 +702,15 @@
                             'width': 2,
                             'line-color': ele => {
                                 const bw = ele.data('bw');
-                                const theme = document.documentElement.getAttribute('data-theme');
-                                const isDark = theme === 'dark';
-
-                                if (!bw || !bw.utilization) {
-                                    return isDark ? '#94a3b8' : '#9ca3af';
-                                }
-                                if (bw.utilization > 80) {
-                                    return isDark ? '#fca5a5' : '#ef4444';
-                                }
-                                if (bw.utilization > 50) {
-                                    return isDark ? '#fcd34d' : '#f59e0b';
-                                }
-                                return isDark ? '#6ee7b7' : '#10b981';
+                                if (!bw || bw.utilization === undefined) return '#10b981';
+                                if (bw.utilization > 80) return '#ef4444';
+                                if (bw.utilization > 50) return '#f59e0b';
+                                return '#10b981';
                             },
                             'target-arrow-shape': 'none',
+                            'source-endpoint': 'outside-to-line',
+                            'target-endpoint': 'outside-to-line',
+                            'edge-distances': 'node-position',
                             'curve-style': useCurvedLines ? 'unbundled-bezier' : 'straight',
                             'control-point-distances': useCurvedLines ? [40, -40] : [],
                             'control-point-weights': useCurvedLines ? [0.25, 0.75] : [],
@@ -724,20 +720,11 @@
                                 return `${bw.inbound}M | ${bw.outbound}M`;
                             },
                             'font-size': 9,
-                            'color': '#6b7280',
-                            'text-background-color': ele => {
-                                const theme = document.documentElement.getAttribute('data-theme');
-                                return theme === 'dark' ? '#1e293b' : '#ffffff';
-                            },
+                            'font-family': 'JetBrains Mono, monospace',
+                            'color': '#94a3b8',
+                            'text-background-color': '#0a0e1a',
                             'text-background-opacity': 0.95,
                             'text-background-padding': 2
-                        }
-                    },
-                    {
-                        selector: 'node:selected',
-                        style: {
-                            'border-width': 3,
-                            'border-color': '#3b82f6'
                         }
                     }
                 ],
@@ -749,14 +736,12 @@
             cy.on('tap', 'edge', function(evt) {
                 const edge = evt.target;
                 const bw = edge.data('bw');
-                const src_if = edge.data('source_if');
-                const tgt_if = edge.data('target_if');
                 const dbId = edge.data('dbId');
 
                 if (bw) {
                     const utilColor = bw.utilization > 80 ? '#ef4444' : bw.utilization > 50 ? '#f59e0b' : '#10b981';
                     document.getElementById('details').innerHTML = `
-                        <h3 style="margin: 0 0 10px 0; font-size: 16px;">${src_if} ↔ ${tgt_if}</h3>
+                        <h3 style="margin: 0 0 15px 0; font-size: 18px;">${edge.data('source_if')} ↔ ${edge.data('target_if')}</h3>
                         <div class="stat"><span class="stat-label">↓ Inbound:</span> <span class="stat-value">${bw.inbound} Mbps</span></div>
                         <div class="stat"><span class="stat-label">↑ Outbound:</span> <span class="stat-value">${bw.outbound} Mbps</span></div>
                         <div class="stat"><span class="stat-label">Capacity:</span> <span class="stat-value">${bw.capacity} Mbps</span></div>
@@ -771,12 +756,12 @@
 
             cy.on('tap', 'node', function(evt) {
                 const node = evt.target;
-                const monitored = node.data('is_monitored') ? 'Yes' : 'No (Dummy)';
+                const monitored = node.data('is_monitored') ? 'Yes' : 'No';
                 const iconDisplay = node.data('hasCustomIcon') ? '<img src="' + node.data('icon') + '" style="max-width: 80px; margin-bottom: 10px;">' : '';
 
                 document.getElementById('details').innerHTML = `
                     <div style="text-align: center; margin-bottom: 10px;">${iconDisplay}</div>
-                    <h3 style="margin: 0 0 10px 0; font-size: 18px; text-align: center;">${node.data('label')}</h3>
+                    <h3 style="margin: 0 0 15px 0; font-size: 18px; text-align: center;">${node.data('label')}</h3>
                     <div class="stat"><span class="stat-label">Type:</span> <span class="stat-value">${node.data('type')}</span></div>
                     <div class="stat"><span class="stat-label">IP:</span> <span class="stat-value">${node.data('ip')}</span></div>
                     <div class="stat"><span class="stat-label">Monitored:</span> <span class="stat-value">${monitored}</span></div>
@@ -800,9 +785,6 @@
                     console.error('Error saving position:', error);
                 }
             });
-
-            cy.on('zoom pan', saveViewport);
-            setTimeout(() => restoreViewport(), 100);
         }
 
         function showAddDeviceModal() {
@@ -827,13 +809,22 @@
             const device = allDevices.find(d => d.id == deviceId);
             if (!device) return;
 
+            uploadedImageBase64 = '';
+            
+            // Show current icon if exists
+            if (device.icon && device.icon.startsWith('data:image')) {
+                document.getElementById('edit-image-preview').innerHTML = 
+                    `<img src="${device.icon}" alt="Current Icon">`;
+            } else {
+                document.getElementById('edit-image-preview').innerHTML = '';
+            }
+
             document.getElementById('edit-device-id').value = device.id;
             document.getElementById('edit-device-name').value = device.label;
             document.getElementById('edit-device-type').value = device.type;
             document.getElementById('edit-device-ip').value = device.ip;
             document.getElementById('edit-device-prometheus').value = device.prometheus_instance || '';
             document.getElementById('edit-device-monitored').checked = device.is_monitored;
-            
             document.getElementById('edit-device-modal').classList.add('active');
         }
 
@@ -845,10 +836,8 @@
                     document.getElementById('edit-link-source-if').value = link.source_interface;
                     document.getElementById('edit-link-target-if').value = link.target_interface;
                     document.getElementById('edit-link-capacity').value = link.bandwidth_capacity;
-                    
                     document.getElementById('edit-link-modal').classList.add('active');
-                })
-                .catch(e => alert('Error loading link: ' + e.message));
+                });
         }
 
         function closeModal(modalId) {
@@ -923,6 +912,11 @@
                 is_monitored: document.getElementById('edit-device-monitored').checked
             };
 
+            // Only include icon if a new one was uploaded
+            if (uploadedImageBase64) {
+                data.icon = uploadedImageBase64;
+            }
+
             try {
                 const res = await fetch(`${API}/devices/${deviceId}/update/`, {
                     method: 'PUT',
@@ -933,8 +927,6 @@
                 if (res.ok) {
                     closeModal('edit-device-modal');
                     loadTopology();
-                } else {
-                    alert('Error updating device');
                 }
             } catch (e) {
                 alert('Error: ' + e.message);
@@ -960,8 +952,6 @@
                 if (res.ok) {
                     closeModal('edit-link-modal');
                     loadTopology();
-                } else {
-                    alert('Error updating link');
                 }
             } catch (e) {
                 alert('Error: ' + e.message);
@@ -969,12 +959,12 @@
         }
 
         async function deleteDevice(deviceId) {
-            if (!confirm('Are you sure you want to delete this device?')) return;
+            if (!confirm('Delete this device?')) return;
             try {
                 const res = await fetch(`${API}/devices/${deviceId}/delete/`, { method: 'DELETE' });
                 if (res.ok) {
                     loadTopology();
-                    document.getElementById('details').innerHTML = '<div class="stat">Device deleted</div>';
+                    document.getElementById('details').innerHTML = '<div class="stat"><span class="stat-label">Device deleted</span></div>';
                 }
             } catch (e) {
                 alert('Error: ' + e.message);
@@ -982,19 +972,19 @@
         }
 
         async function deleteLink(linkId) {
-            if (!confirm('Are you sure you want to delete this link?')) return;
+            if (!confirm('Delete this link?')) return;
             try {
                 const res = await fetch(`${API}/links/${linkId}/delete/`, { method: 'DELETE' });
                 if (res.ok) {
                     loadTopology();
-                    document.getElementById('details').innerHTML = '<div class="stat">Link deleted</div>';
+                    document.getElementById('details').innerHTML = '<div class="stat"><span class="stat-label">Link deleted</span></div>';
                 }
             } catch (e) {
                 alert('Error: ' + e.message);
             }
         }
 
-        loadPreferences();
+        updateLineToggleButton();
         loadTopology();
         setInterval(loadTopology, 30000);
     </script>
