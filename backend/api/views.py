@@ -14,7 +14,7 @@ def get_topology(request):
     """Return network topology with real-time metrics"""
     devices = Device.objects.all()
     links = Link.objects.all()
-    
+
     # Build nodes
     nodes = []
     for device in devices:
@@ -24,26 +24,34 @@ def get_topology(request):
             'type': device.device_type,
             'ip': device.ip_address,
             'is_monitored': device.is_monitored,
-            'icon': device.icon,  # Make sure this line is here
+            'icon': device.icon,
             'position': {'x': device.position_x, 'y': device.position_y}
         })
-    
+
     # Build edges with real-time bandwidth
     edges = []
     for link in links:
-        # Only get metrics if both devices are monitored
-        if link.source_device.is_monitored and link.target_device.is_monitored and link.source_device.prometheus_instance:
+        # Get metrics from whichever device is monitored
+        metrics = {'inbound': 0, 'outbound': 0, 'timestamp': None}
+        utilization = 0
+        
+        if link.source_device.is_monitored and link.source_device.prometheus_instance:
+            # Query source device
             metrics = prom.get_interface_bandwidth(
                 link.source_device.prometheus_instance,
                 link.source_interface
             )
             total_bandwidth = metrics['inbound'] + metrics['outbound']
             utilization = (total_bandwidth / (link.bandwidth_capacity * 2)) * 100 if link.bandwidth_capacity > 0 else 0
-        else:
-            # Dummy link - no metrics
-            metrics = {'inbound': 0, 'outbound': 0, 'timestamp': None}
-            utilization = 0
-        
+        elif link.target_device.is_monitored and link.target_device.prometheus_instance:
+            # Query target device (for dummy source nodes like ISP)
+            metrics = prom.get_interface_bandwidth(
+                link.target_device.prometheus_instance,
+                link.target_interface
+            )
+            total_bandwidth = metrics['inbound'] + metrics['outbound']
+            utilization = (total_bandwidth / (link.bandwidth_capacity * 2)) * 100 if link.bandwidth_capacity > 0 else 0
+
         edges.append({
             'id': link.id,
             'source': link.source_device.id,
@@ -57,7 +65,7 @@ def get_topology(request):
                 'utilization': round(utilization, 1)
             }
         })
-    
+
     return Response({
         'nodes': nodes,
         'edges': edges,
