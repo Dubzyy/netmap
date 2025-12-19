@@ -28,6 +28,7 @@ A real-time network topology visualizer with live bandwidth monitoring powered b
 - ✅ **Persistent Viewport** - Zoom and pan state preserved across page reloads
 - ✅ **Auto-Reconnect** - WebSocket automatically reconnects on connection loss
 - ✅ **Connection Status Indicator** - Visual feedback on WebSocket connection state
+- ✅ **Cross-Platform Support** - Works on Ubuntu/Debian and AlmaLinux/CentOS/Rocky Linux
 - ✅ **Systemd Service** - Production-ready service management with Daphne ASGI server
 - ✅ **One-Command Install** - Automated installation script for easy deployment
 
@@ -42,8 +43,21 @@ A real-time network topology visualizer with live bandwidth monitoring powered b
 
 ## 📋 Prerequisites
 
-- Ubuntu 24.04 LTS (or similar Debian-based distro)
-- Python 3.12+
+### Supported Operating Systems
+
+**Debian-based:**
+- Ubuntu 22.04 LTS or newer (tested on Ubuntu 24.04 LTS)
+- Debian 11 or newer
+
+**RHEL-based:**
+- AlmaLinux 9 or newer
+- CentOS Stream 9 or newer
+- Rocky Linux 9 or newer
+- Red Hat Enterprise Linux (RHEL) 9 or newer
+- Fedora 36 or newer
+
+### Requirements
+- Python 3.12+ (3.10+ on RHEL-based systems)
 - Prometheus server with SNMP Exporter
 - Network devices with SNMP enabled
 - sudo/root access for systemd service installation
@@ -52,21 +66,92 @@ A real-time network topology visualizer with live bandwidth monitoring powered b
 ## 🔧 Installation
 
 ### Quick Install (Automated)
+
+The installation script automatically detects your OS and installs the correct packages!
+
 ```bash
 git clone https://github.com/Dubzyy/netmap.git
 cd netmap
-./install.sh
+sudo ./install.sh
 ```
 
 The install script will:
-- Install system dependencies (Python, pip, etc.)
+- **Auto-detect your operating system** (Ubuntu/Debian or AlmaLinux/CentOS/Rocky)
+- Install system dependencies with the correct package manager (apt or dnf)
+- Enable EPEL repository (on RHEL-based systems)
+- Configure SELinux permissions (on RHEL-based systems)
 - Create Python virtual environment
 - Install Python packages (Django, Channels, Daphne, etc.)
 - Run database migrations
 - Create systemd service with Daphne ASGI server
+- Configure firewall (ufw or firewalld)
 - Start NetMap automatically
 
 After installation, access NetMap at: `http://your-server-ip:8000`
+
+### Platform-Specific Notes
+
+<details>
+<summary><b>Ubuntu / Debian Installation Notes</b></summary>
+
+**Package Manager:** apt  
+**Firewall:** ufw (if enabled)  
+**Python Package:** python3-pip, python3-venv
+
+```bash
+# Standard installation
+sudo ./install.sh
+```
+
+No special configuration needed - the script handles everything automatically.
+</details>
+
+<details>
+<summary><b>AlmaLinux / CentOS / Rocky Linux Installation Notes</b></summary>
+
+**Package Manager:** dnf  
+**Firewall:** firewalld (automatically configured)  
+**Python Package:** python3-pip, python3-devel, gcc, openssl-devel, libffi-devel  
+**Repository:** EPEL (automatically enabled)
+
+The installer automatically:
+- Enables EPEL repository for additional packages
+- Installs build dependencies (gcc, python3-devel)
+- Configures SELinux permissions for Daphne
+- Sets up firewalld rules (port 8000)
+- Enables network connections for HTTP services
+
+```bash
+# Standard installation (same as Ubuntu)
+sudo ./install.sh
+```
+
+**SELinux Configuration:**
+The installer automatically configures SELinux to allow NetMap to run. If you encounter permission issues:
+
+```bash
+# Check SELinux status
+getenforce
+
+# View SELinux denials
+sudo ausearch -m avc -ts recent
+
+# If needed, allow HTTP network connections
+sudo setsebool -P httpd_can_network_connect 1
+```
+
+**Firewalld Configuration:**
+Port 8000 is automatically opened. To verify:
+
+```bash
+# Check firewall status
+sudo firewall-cmd --list-ports
+
+# Manually add port if needed
+sudo firewall-cmd --permanent --add-port=8000/tcp
+sudo firewall-cmd --reload
+```
+</details>
 
 ### Manual Installation
 
@@ -76,7 +161,24 @@ git clone https://github.com/Dubzyy/netmap.git
 cd netmap
 ```
 
-#### 2. Backend Setup
+#### 2. Install System Dependencies
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update
+sudo apt install -y python3 python3-pip python3-venv git
+```
+
+**AlmaLinux/CentOS/Rocky:**
+```bash
+# Enable EPEL
+sudo dnf install -y epel-release
+
+# Install dependencies
+sudo dnf install -y python3 python3-pip python3-devel gcc git openssl-devel libffi-devel
+```
+
+#### 3. Backend Setup
 ```bash
 cd backend
 
@@ -91,7 +193,7 @@ pip install -r requirements.txt
 python manage.py migrate
 ```
 
-#### 3. Configuration
+#### 4. Configuration
 
 Create your local settings file:
 ```bash
@@ -110,7 +212,7 @@ PROMETHEUS_URL = 'http://your-prometheus-server:9090'
 
 **Note**: The `settings_local.py` file is git-ignored and won't be committed to version control.
 
-#### 4. Run Development Server
+#### 5. Run Development Server
 ```bash
 # For development with WebSocket support, use Daphne
 daphne -b 0.0.0.0 -p 8000 netmap.asgi:application
@@ -207,7 +309,12 @@ server {
 
 Get free SSL certificate:
 ```bash
+# Ubuntu/Debian
 sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d netmap.yourdomain.com
+
+# AlmaLinux/CentOS/Rocky
+sudo dnf install certbot python3-certbot-nginx
 sudo certbot --nginx -d netmap.yourdomain.com
 ```
 
@@ -376,6 +483,73 @@ Make sure your network devices have SNMP enabled and accessible from your Promet
 - **No Historical Data** - Only current metrics displayed, no time-series graphs
 - **No Alerting** - No notifications for high utilization or down links
 
+## 🔧 Troubleshooting
+
+### Common Issues
+
+<details>
+<summary><b>WebSocket Connection Fails</b></summary>
+
+**Symptoms:** Console shows `WebSocket error` or `Connection refused`
+
+**Solutions:**
+1. Verify Daphne is running: `sudo systemctl status netmap`
+2. Check Nginx has WebSocket proxy headers (see Nginx config above)
+3. View Daphne logs: `sudo journalctl -u netmap -f`
+4. Test WebSocket directly:
+   ```bash
+   curl -i -N -H "Connection: Upgrade" -H "Upgrade: websocket" \
+     -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: test" \
+     http://localhost:8000/ws/topology/
+   ```
+</details>
+
+<details>
+<summary><b>Service Won't Start (RHEL-based)</b></summary>
+
+**Symptoms:** `systemctl status netmap` shows failed
+
+**Solutions:**
+1. Check SELinux: `sudo ausearch -m avc -ts recent`
+2. Enable network connections: `sudo setsebool -P httpd_can_network_connect 1`
+3. Check file permissions: `ls -lZ /home/netmap/netmap/backend/venv/bin/daphne`
+4. View detailed logs: `sudo journalctl -u netmap -n 50`
+</details>
+
+<details>
+<summary><b>Firewall Blocking Connections</b></summary>
+
+**Ubuntu/Debian (ufw):**
+```bash
+sudo ufw allow 8000/tcp
+sudo ufw status
+```
+
+**AlmaLinux/CentOS/Rocky (firewalld):**
+```bash
+sudo firewall-cmd --permanent --add-port=8000/tcp
+sudo firewall-cmd --reload
+sudo firewall-cmd --list-ports
+```
+</details>
+
+<details>
+<summary><b>Python Package Installation Errors</b></summary>
+
+**Solutions:**
+```bash
+cd ~/netmap/backend
+source venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+**On RHEL-based systems, ensure build tools are installed:**
+```bash
+sudo dnf install gcc python3-devel openssl-devel libffi-devel
+```
+</details>
+
 ## 📝 Roadmap
 
 ### High Priority
@@ -406,6 +580,7 @@ Make sure your network devices have SNMP enabled and accessible from your Promet
 
 ### Completed ✅
 - [x] **WebSocket real-time updates** - Instant topology synchronization across all clients
+- [x] **Cross-platform support** - Ubuntu/Debian and AlmaLinux/CentOS/Rocky Linux
 - [x] **Professional grid background** - Dual-layer grid for precise network diagramming
 - [x] **Daphne ASGI server** - Production-ready WebSocket + HTTP server
 - [x] **Django Channels integration** - Event-driven architecture for broadcasts
