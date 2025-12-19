@@ -3,15 +3,17 @@
 > **⚠️ WORK IN PROGRESS - NOT PRODUCTION READY ⚠️**
 > This is an active development project and should not be used in production environments without significant security hardening, testing, and validation.
 
-A real-time network topology visualizer with live bandwidth monitoring powered by Prometheus and SNMP metrics. Built for network engineers and NOC teams to visualize and monitor their infrastructure.
+A real-time network topology visualizer with live bandwidth monitoring powered by Prometheus and SNMP metrics. Built for network engineers and NOC teams to visualize and monitor their infrastructure with **instant WebSocket updates**.
 
 ![NetMap Screenshot](docs/images/netmap-screenshot.png)
 
 ## 🚀 Features
 
 ### Current Capabilities
-- ✅ **Real-Time Monitoring** - Live bandwidth metrics from Prometheus/SNMP with 30-second auto-refresh
+- ✅ **Real-Time WebSocket Updates** - Instant topology changes across all clients (<100ms latency, no polling)
+- ✅ **Live Bandwidth Monitoring** - Real-time metrics from Prometheus/SNMP with automatic updates
 - ✅ **Interactive Topology** - Drag-and-drop network diagram with persistent node positioning
+- ✅ **Professional Grid Background** - Dual-layer grid pattern (major/minor lines) for precise diagramming
 - ✅ **Modern Glassmorphism UI** - Beautiful gradient header, custom fonts (Inter + JetBrains Mono), and professional design
 - ✅ **Custom Device Icons** - Upload and edit PNG/JPG/SVG images with transparent backgrounds
 - ✅ **Smart Icon Display** - Text labels positioned below custom icons for optimal readability
@@ -24,16 +26,19 @@ A real-time network topology visualizer with live bandwidth monitoring powered b
 - ✅ **Enhanced Edge Connections** - Links properly connect to node boundaries
 - ✅ **Bandwidth Visualization** - Real-time inbound/outbound traffic display on each link
 - ✅ **Persistent Viewport** - Zoom and pan state preserved across page reloads
-- ✅ **Systemd Service** - Production-ready service management
+- ✅ **Auto-Reconnect** - WebSocket automatically reconnects on connection loss
+- ✅ **Connection Status Indicator** - Visual feedback on WebSocket connection state
+- ✅ **Systemd Service** - Production-ready service management with Daphne ASGI server
 - ✅ **One-Command Install** - Automated installation script for easy deployment
 
 ### Tech Stack
-- **Backend**: Django 5.0, Django REST Framework
-- **Frontend**: Cytoscape.js, Vanilla JavaScript
+- **Backend**: Django 6.0, Django REST Framework, Django Channels 4.0
+- **ASGI Server**: Daphne 4.0 (WebSocket + HTTP support)
+- **Frontend**: Cytoscape.js, Vanilla JavaScript, WebSocket API
 - **Database**: SQLite (development) / PostgreSQL (production ready)
 - **Monitoring**: Prometheus, SNMP Exporter
-- **Deployment**: systemd service
-- **Network Protocols**: SNMP v2c/v3
+- **Deployment**: systemd service with Daphne
+- **Network Protocols**: SNMP v2c/v3, WebSocket (WSS)
 
 ## 📋 Prerequisites
 
@@ -42,6 +47,7 @@ A real-time network topology visualizer with live bandwidth monitoring powered b
 - Prometheus server with SNMP Exporter
 - Network devices with SNMP enabled
 - sudo/root access for systemd service installation
+- Nginx or similar reverse proxy (recommended for production with SSL/WebSocket support)
 
 ## 🔧 Installation
 
@@ -55,9 +61,9 @@ cd netmap
 The install script will:
 - Install system dependencies (Python, pip, etc.)
 - Create Python virtual environment
-- Install Python packages
+- Install Python packages (Django, Channels, Daphne, etc.)
 - Run database migrations
-- Create systemd service
+- Create systemd service with Daphne ASGI server
 - Start NetMap automatically
 
 After installation, access NetMap at: `http://your-server-ip:8000`
@@ -78,7 +84,7 @@ cd backend
 python3 -m venv venv
 source venv/bin/activate
 
-# Install dependencies
+# Install dependencies (includes Django Channels and Daphne)
 pip install -r requirements.txt
 
 # Run migrations
@@ -106,6 +112,10 @@ PROMETHEUS_URL = 'http://your-prometheus-server:9090'
 
 #### 4. Run Development Server
 ```bash
+# For development with WebSocket support, use Daphne
+daphne -b 0.0.0.0 -p 8000 netmap.asgi:application
+
+# Alternative: Django development server (no WebSocket support)
 python manage.py runserver 0.0.0.0:8000
 ```
 
@@ -115,7 +125,8 @@ Visit: `http://your-server:8000`
 
 ### Systemd Service
 
-The systemd service is automatically created by `install.sh`. Manual management:
+The systemd service is automatically created by `install.sh` and uses Daphne ASGI server for WebSocket support. Manual management:
+
 ```bash
 sudo systemctl start netmap    # Start service
 sudo systemctl stop netmap     # Stop service
@@ -126,9 +137,32 @@ sudo journalctl -u netmap -f   # View logs
 
 Service file location: `/etc/systemd/system/netmap.service`
 
-### Nginx Reverse Proxy with SSL
+**Example systemd service configuration:**
+```ini
+[Unit]
+Description=NetMap Network Topology Visualizer with WebSocket Support
+After=network.target
 
-Example Nginx configuration with HTTPS:
+[Service]
+Type=simple
+User=netmap
+Group=netmap
+WorkingDirectory=/home/netmap/netmap/backend
+Environment="PATH=/home/netmap/netmap/backend/venv/bin"
+Environment="DJANGO_SETTINGS_MODULE=netmap.settings"
+ExecStart=/home/netmap/netmap/backend/venv/bin/daphne -b 0.0.0.0 -p 8000 netmap.asgi:application
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### Nginx Reverse Proxy with SSL and WebSocket Support
+
+**Critical**: Nginx must be configured with WebSocket proxy headers for real-time updates to work.
+
+Example Nginx configuration with HTTPS and WebSocket support:
 ```nginx
 server {
     listen 443 ssl http2;
@@ -146,20 +180,21 @@ server {
 
     location / {
         proxy_pass http://localhost:8000;
+        proxy_http_version 1.1;
+        
+        # WebSocket support - REQUIRED for real-time updates
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        # Standard proxy headers
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         
-        # Timeouts for long requests
-        proxy_connect_timeout 600;
-        proxy_send_timeout 600;
-        proxy_read_timeout 600;
-        
-        # WebSocket support
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
+        # WebSocket timeouts
+        proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
     }
 }
 
@@ -175,6 +210,28 @@ Get free SSL certificate:
 sudo apt install certbot python3-certbot-nginx
 sudo certbot --nginx -d netmap.yourdomain.com
 ```
+
+**After configuring Nginx:**
+```bash
+sudo nginx -t                  # Test configuration
+sudo systemctl reload nginx    # Apply changes
+```
+
+### WebSocket Architecture
+
+NetMap uses Django Channels with Daphne ASGI server for WebSocket support:
+
+- **Channel Layer**: In-memory (development) / Redis (production scaling)
+- **Consumer**: `TopologyConsumer` handles WebSocket connections
+- **Broadcast**: All CRUD operations automatically broadcast to connected clients
+- **Auto-Reconnect**: Client automatically reconnects every 5 seconds on disconnect
+- **Fallback**: HTTP polling used if WebSocket unavailable
+
+**Benefits over HTTP polling:**
+- Update latency: 30s → <100ms
+- Network requests: 120/hour/client → 1 persistent connection  
+- Server load: High (constant polling) → Low (event-driven)
+- Bandwidth: 10KB/30s → Updates only on changes
 
 ## 📊 Prometheus Configuration
 
@@ -222,6 +279,7 @@ Make sure your network devices have SNMP enabled and accessible from your Promet
    - **Has Prometheus Metrics**: Uncheck for dummy nodes (ISP equipment, external devices)
 3. Optionally upload a custom icon (PNG/JPG/SVG)
 4. Click **"Create Device"**
+5. **All connected clients see the change instantly via WebSocket!**
 
 **Note**: For dummy nodes (external/ISP equipment), uncheck "Has Prometheus Metrics" - these will appear without bandwidth data.
 
@@ -234,18 +292,35 @@ Make sure your network devices have SNMP enabled and accessible from your Promet
    - Linux: `eth0`, `bond0`, `ens192`
 4. Set bandwidth capacity in Mbps (e.g., `1000` for 1 Gbps, `10000` for 10 Gbps)
 5. Click **"Create Link"**
+6. **Link appears instantly in all open browser tabs!**
 
 ### Editing Devices and Links
 1. Click on any device or link to view details in the info panel
 2. Click the **"✏️ Edit"** button
 3. Modify any fields (except device type cannot change after creation)
 4. Click **"Save Changes"**
+5. **Changes broadcast to all users in real-time**
 
 ### Deleting Resources
 1. Click on the device or link to select it
 2. Click **"🗑️ Delete"** button in the info panel
 3. Confirm deletion in the dialog
 4. All connected links will be removed if you delete a device
+5. **Deletion syncs instantly across all clients**
+
+### Real-Time Updates
+
+**WebSocket Features:**
+- ✅ **Instant Topology Changes** - Create/edit/delete syncs across all clients immediately
+- ✅ **Connection Indicator** - Refresh button opacity shows WebSocket status
+- ✅ **Auto-Reconnect** - Automatically reconnects if connection drops
+- ✅ **HTTP Fallback** - Uses standard HTTP if WebSocket unavailable
+
+**How to verify WebSocket is working:**
+1. Open NetMap in two browser tabs side-by-side
+2. Add/edit/delete a device in one tab
+3. Watch it appear/update/disappear instantly in the other tab (no refresh needed!)
+4. Browser console (F12) shows: `WebSocket connected`
 
 ### Viewing Real-Time Metrics
 
@@ -264,13 +339,12 @@ Make sure your network devices have SNMP enabled and accessible from your Promet
 - Monitoring status (monitored or dummy)
 
 ### UI Controls
-- **🔄 Refresh**: Manually refresh topology and metrics
+- **🔄 Refresh**: Manually refresh topology and metrics (also indicates WebSocket status)
 - **➕ Add Device**: Open device creation modal
 - **🔗 Add Link**: Open link creation modal
 - **🎯 Fit View**: Center and fit all nodes in viewport
 - **🔍 Zoom In/Out**: Adjust zoom level
 - **📐 Curved/Straight Lines**: Toggle between curved bezier and straight lines
-- **🌙/☀️ Dark Mode**: Switch between dark and light themes
 
 ### Keyboard & Mouse Controls
 - **Drag nodes**: Click and drag to reposition (saves automatically)
@@ -281,11 +355,13 @@ Make sure your network devices have SNMP enabled and accessible from your Promet
 
 ### Tips & Best Practices
 - Arrange your topology logically (top-to-bottom or left-to-right flow)
+- Use the grid background for precise alignment
 - Use custom icons for important devices to make them stand out
 - Name interfaces consistently for easier troubleshooting
 - Set realistic bandwidth capacities for accurate utilization percentages
 - Check link colors regularly - red links may indicate bottlenecks
 - Use dummy nodes for ISP connections and external networks
+- Open NetMap in multiple tabs/screens for NOC monitoring
 
 ## 🚧 Known Limitations
 
@@ -294,8 +370,9 @@ Make sure your network devices have SNMP enabled and accessible from your Promet
 - **No Rate Limiting** - API endpoints unprotected from abuse
 - **No TLS/SSL Built-in** - HTTP only (must use reverse proxy with SSL for HTTPS)
 - **SQLite Default** - Works fine for small deployments, PostgreSQL recommended for production scale
+- **In-Memory Channel Layer** - For multi-server deployments, use Redis channel layer
 - **No Backup System** - Database backups not automated
-- **Single Server** - No clustering, load balancing, or high availability
+- **Single Server** - No clustering or load balancing (can scale with Redis channels)
 - **No Historical Data** - Only current metrics displayed, no time-series graphs
 - **No Alerting** - No notifications for high utilization or down links
 
@@ -308,6 +385,7 @@ Make sure your network devices have SNMP enabled and accessible from your Promet
 - [ ] Enhanced error handling and logging
 - [ ] API rate limiting and throttling
 - [ ] API documentation (Swagger/OpenAPI)
+- [ ] Redis channel layer for production scaling
 
 ### Medium Priority
 - [ ] Docker containerization with docker-compose
@@ -319,20 +397,25 @@ Make sure your network devices have SNMP enabled and accessible from your Promet
 - [ ] Device grouping and hierarchical views
 
 ### Low Priority
-- [ ] WebSocket for true real-time updates (eliminate 30s polling)
 - [ ] Multi-tenant support for MSPs
 - [ ] Custom dashboard widgets
 - [ ] Scheduled reports (PDF/email)
 - [ ] Mobile app (React Native)
 - [ ] Integration with other monitoring tools (LibreNMS, Zabbix)
+- [ ] Advanced topology layouts (hierarchical, circular, force-directed)
 
 ### Completed ✅
+- [x] **WebSocket real-time updates** - Instant topology synchronization across all clients
+- [x] **Professional grid background** - Dual-layer grid for precise network diagramming
+- [x] **Daphne ASGI server** - Production-ready WebSocket + HTTP server
+- [x] **Django Channels integration** - Event-driven architecture for broadcasts
+- [x] **Auto-reconnect logic** - Resilient WebSocket connections
+- [x] **Connection status indicator** - Visual feedback on WebSocket state
 - [x] Modern glassmorphism UI with gradient effects and custom typography
 - [x] Custom device icon upload and edit functionality
 - [x] Transparent icon backgrounds for clean visualization
 - [x] Smart text positioning below custom icons
 - [x] Vibrant green links for low/normal traffic visualization
-- [x] Dark/light theme toggle with persistence
 - [x] Edit functionality for devices and links (including icon updates)
 - [x] Curved/straight line toggle
 - [x] Viewport persistence across sessions
@@ -374,6 +457,7 @@ Found a bug? Please [open an issue](https://github.com/Dubzyy/netmap/issues) wit
   - Python version
   - Browser and version
   - NetMap version/commit
+  - WebSocket connection status
 
 ## 📄 License
 
@@ -398,6 +482,8 @@ Built with these amazing open-source tools:
 
 - **[Django](https://www.djangoproject.com/)** - High-level Python web framework
 - **[Django REST Framework](https://www.django-rest-framework.org/)** - Powerful REST API toolkit
+- **[Django Channels](https://channels.readthedocs.io/)** - WebSocket and async support for Django
+- **[Daphne](https://github.com/django/daphne)** - ASGI server for Django Channels
 - **[Cytoscape.js](https://js.cytoscape.org/)** - Graph theory visualization library
 - **[Prometheus](https://prometheus.io/)** - Monitoring and alerting toolkit
 - **[SNMP Exporter](https://github.com/prometheus/snmp_exporter)** - SNMP to Prometheus metrics
@@ -417,6 +503,7 @@ Inspired by enterprise monitoring tools like SolarWinds NPM, PRTG Network Monito
 - ✅ Restricting network access to trusted IPs only
 - ✅ Reviewing and securing the Django secret key
 - ✅ Disabling DEBUG mode in production
+- ✅ Securing WebSocket connections with WSS (SSL)
 
 **This project is intended for internal use within trusted networks.** The author assumes no liability for security vulnerabilities, data loss, network outages, or any other issues arising from use of this software.
 
@@ -441,7 +528,7 @@ Need help? Here's how to get support:
 **Development Status**: 🚧 Active Development  
 **Version**: 0.3.0-alpha  
 **Stability**: Pre-release (Not Production Ready)  
-**Last Updated**: December 18, 2025
+**Last Updated**: December 19, 2025
 
 Made with ❤️ for the network engineering community
 

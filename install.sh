@@ -89,11 +89,11 @@ fi
 
 deactivate
 
-# Create systemd service
-echo "🔧 Creating systemd service..."
+# Create systemd service for Daphne (ASGI/WebSocket server)
+echo "🔧 Creating systemd service for Daphne (WebSocket support)..."
 sudo tee /etc/systemd/system/netmap.service > /dev/null <<EOF
 [Unit]
-Description=NetMap Network Topology Visualizer
+Description=NetMap Network Topology Visualizer with WebSocket Support
 After=network.target
 
 [Service]
@@ -102,7 +102,7 @@ User=$USER
 Group=$USER
 WorkingDirectory=$INSTALL_DIR/backend
 Environment="PATH=$INSTALL_DIR/backend/venv/bin"
-ExecStart=$INSTALL_DIR/backend/venv/bin/python $INSTALL_DIR/backend/manage.py runserver 0.0.0.0:8000
+ExecStart=$INSTALL_DIR/backend/venv/bin/daphne -b 0.0.0.0 -p 8000 netmap.asgi:application
 Restart=always
 RestartSec=10
 
@@ -133,6 +133,12 @@ if [ -n "$DOMAIN_NAME" ]; then
     echo "   http://$DOMAIN_NAME:8000"
 fi
 echo ""
+echo "⚡ Features enabled:"
+echo "   ✓ Real-time WebSocket updates (no 30s polling!)"
+echo "   ✓ Instant topology changes across all connected clients"
+echo "   ✓ Live bandwidth monitoring"
+echo "   ✓ Auto-reconnect on connection loss"
+echo ""
 echo "📝 Useful commands:"
 echo "   sudo systemctl status netmap    - Check service status"
 echo "   sudo systemctl restart netmap   - Restart service"
@@ -150,5 +156,10 @@ echo "📚 Next steps:"
 echo "   1. Set up Prometheus with SNMP Exporter"
 echo "   2. Add your devices via the web interface"
 echo "   3. Configure network monitoring targets"
-echo "   4. (Optional) Set up Nginx reverse proxy with SSL"
+echo "   4. (Optional) Set up Nginx reverse proxy with SSL for WebSocket support"
+echo ""
+echo "💡 Note: If using Nginx, ensure your config includes WebSocket proxy headers:"
+echo "   proxy_http_version 1.1;"
+echo "   proxy_set_header Upgrade \$http_upgrade;"
+echo "   proxy_set_header Connection \"upgrade\";"
 echo ""

@@ -7,11 +7,18 @@ from .models import Device, Link
 from .serializers import DeviceSerializer, LinkSerializer
 from .prometheus_client import PrometheusClient
 
+# WebSocket imports
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+
 prom = PrometheusClient(settings.PROMETHEUS_URL)
 
-@api_view(['GET'])
-def get_topology(request):
-    """Return network topology with real-time metrics"""
+
+def get_topology_data():
+    """
+    Helper function to extract topology data.
+    Used by both HTTP endpoint and WebSocket consumer.
+    """
     devices = Device.objects.all()
     links = Link.objects.all()
 
@@ -31,6 +38,8 @@ def get_topology(request):
 
     # Build edges with real-time bandwidth
     edges = []
+    metrics_timestamp = None
+    
     for link in links:
         # Get metrics from whichever device is monitored
         metrics = {'inbound': 0, 'outbound': 0, 'timestamp': None}
@@ -44,6 +53,7 @@ def get_topology(request):
             )
             total_bandwidth = metrics['inbound'] + metrics['outbound']
             utilization = (total_bandwidth / (link.bandwidth_capacity * 2)) * 100 if link.bandwidth_capacity > 0 else 0
+            metrics_timestamp = metrics.get('timestamp')
         elif link.target_device.is_monitored and link.target_device.prometheus_instance:
             # Query target device (for dummy source nodes like ISP)
             metrics = prom.get_interface_bandwidth(
@@ -52,6 +62,7 @@ def get_topology(request):
             )
             total_bandwidth = metrics['inbound'] + metrics['outbound']
             utilization = (total_bandwidth / (link.bandwidth_capacity * 2)) * 100 if link.bandwidth_capacity > 0 else 0
+            metrics_timestamp = metrics.get('timestamp')
 
         edges.append({
             'id': link.id,
@@ -67,11 +78,39 @@ def get_topology(request):
             }
         })
 
-    return Response({
+    return {
         'nodes': nodes,
         'edges': edges,
-        'timestamp': metrics.get('timestamp') if edges else None
-    })
+        'timestamp': metrics_timestamp
+    }
+
+
+def broadcast_topology_update():
+    """
+    Broadcast topology update to all connected WebSocket clients.
+    Call this after any device or link changes.
+    """
+    channel_layer = get_channel_layer()
+    if channel_layer:
+        try:
+            topology_data = get_topology_data()
+            async_to_sync(channel_layer.group_send)(
+                'topology_updates',
+                {
+                    'type': 'topology_update',
+                    'data': topology_data
+                }
+            )
+        except Exception as e:
+            print(f"Error broadcasting topology update: {e}")
+
+
+@api_view(['GET'])
+def get_topology(request):
+    """Return network topology with real-time metrics"""
+    data = get_topology_data()
+    return Response(data)
+
 
 @csrf_exempt
 @api_view(['POST'])
@@ -85,6 +124,7 @@ def update_device_position(request, device_id):
         return Response({'status': 'ok'})
     except Device.DoesNotExist:
         return Response({'error': 'Device not found'}, status=status.HTTP_404_NOT_FOUND)
+
 
 @csrf_exempt
 @api_view(['PUT'])
@@ -103,10 +143,13 @@ def update_device(request, device_id):
             device.icon = request.data.get('icon')
 
         device.save()
+        broadcast_topology_update()
+        
         serializer = DeviceSerializer(device)
         return Response(serializer.data)
     except Device.DoesNotExist:
         return Response({'error': 'Device not found'}, status=status.HTTP_404_NOT_FOUND)
+
 
 @api_view(['GET'])
 def list_devices(request):
@@ -115,6 +158,7 @@ def list_devices(request):
     serializer = DeviceSerializer(devices, many=True)
     return Response(serializer.data)
 
+
 @api_view(['GET'])
 def list_links(request):
     """List all links"""
@@ -122,14 +166,17 @@ def list_links(request):
     serializer = LinkSerializer(links, many=True)
     return Response(serializer.data)
 
+
 @api_view(['POST'])
 def create_device(request):
     """Create a new device"""
     serializer = DeviceSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
+        broadcast_topology_update()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(['POST'])
 def create_link(request):
@@ -137,8 +184,10 @@ def create_link(request):
     serializer = LinkSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
+        broadcast_topology_update()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(['DELETE'])
 def delete_device(request, device_id):
@@ -146,9 +195,11 @@ def delete_device(request, device_id):
     try:
         device = Device.objects.get(id=device_id)
         device.delete()
+        broadcast_topology_update()
         return Response({'status': 'deleted'}, status=status.HTTP_204_NO_CONTENT)
     except Device.DoesNotExist:
         return Response({'error': 'Device not found'}, status=status.HTTP_404_NOT_FOUND)
+
 
 @api_view(['DELETE'])
 def delete_link(request, link_id):
@@ -156,9 +207,11 @@ def delete_link(request, link_id):
     try:
         link = Link.objects.get(id=link_id)
         link.delete()
+        broadcast_topology_update()
         return Response({'status': 'deleted'}, status=status.HTTP_204_NO_CONTENT)
     except Link.DoesNotExist:
         return Response({'error': 'Link not found'}, status=status.HTTP_404_NOT_FOUND)
+
 
 @api_view(['PUT'])
 def update_link(request, link_id):
@@ -169,10 +222,13 @@ def update_link(request, link_id):
         link.target_interface = request.data.get('target_interface', link.target_interface)
         link.bandwidth_capacity = request.data.get('bandwidth_capacity', link.bandwidth_capacity)
         link.save()
+        broadcast_topology_update()
+        
         serializer = LinkSerializer(link)
         return Response(serializer.data)
     except Link.DoesNotExist:
         return Response({'error': 'Link not found'}, status=status.HTTP_404_NOT_FOUND)
+
 
 @api_view(['GET'])
 def get_link(request, link_id):

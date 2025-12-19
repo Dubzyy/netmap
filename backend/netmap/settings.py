@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
+    'channels',  # WebSocket support
     'api',
 ]
 
@@ -83,6 +84,20 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'netmap.wsgi.application'
+
+# ASGI application for WebSocket support
+ASGI_APPLICATION = 'netmap.asgi.application'
+
+# Channel layers configuration for WebSocket
+CHANNEL_LAYERS = {
+    'default': {
+        # Use in-memory channel layer for simplicity
+        # For production with multiple workers, use Redis:
+        # 'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        # 'CONFIG': {'hosts': [('127.0.0.1', 6379)]},
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+    }
+}
 
 
 # Database

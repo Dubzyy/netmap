@@ -41,7 +41,14 @@
         #cy {
             width: 100%;
             height: 100vh;
-            background: var(--bg-primary);
+            background-color: var(--bg-primary);
+            background-image: 
+                linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+                linear-gradient(rgba(59, 130, 246, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(59, 130, 246, 0.03) 1px, transparent 1px);
+            background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
+            background-position: -1px -1px, -1px -1px, -1px -1px, -1px -1px;
         }
 
         .toolbar {
@@ -550,6 +557,8 @@
         let allDevices = [];
         let uploadedImageBase64 = '';
         let useCurvedLines = localStorage.getItem('netmap-curved-lines') !== 'false';
+        let ws = null;
+        let reconnectInterval = null;
 
         function updateLineToggleButton() {
             document.getElementById('line-toggle-btn').textContent = useCurvedLines ? 'Curved' : 'Straight';
@@ -570,6 +579,125 @@
                     })
                     .update();
             }
+        }
+
+        // WebSocket Connection Management
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/topology/`;
+            
+            console.log('Connecting to WebSocket:', wsUrl);
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = function() {
+                console.log('WebSocket connected');
+                updateConnectionStatus(true);
+                
+                if (reconnectInterval) {
+                    clearInterval(reconnectInterval);
+                    reconnectInterval = null;
+                }
+            };
+            
+            ws.onmessage = function(event) {
+                const message = JSON.parse(event.data);
+                
+                if (message.type === 'topology_update') {
+                    updateTopology(message.data);
+                }
+            };
+            
+            ws.onclose = function() {
+                console.log('WebSocket disconnected');
+                updateConnectionStatus(false);
+                
+                if (!reconnectInterval) {
+                    reconnectInterval = setInterval(() => {
+                        console.log('Attempting to reconnect...');
+                        connectWebSocket();
+                    }, 5000);
+                }
+            };
+            
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                updateConnectionStatus(false);
+            };
+        }
+
+        function updateConnectionStatus(connected) {
+            const refreshBtn = document.querySelector('.toolbar .btn');
+            if (connected) {
+                refreshBtn.style.opacity = '1';
+                refreshBtn.title = 'Connected - Real-time updates active';
+            } else {
+                refreshBtn.style.opacity = '0.5';
+                refreshBtn.title = 'Disconnected - Reconnecting...';
+            }
+        }
+
+        function loadTopology() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ action: 'refresh' }));
+            } else {
+                fetch(`${API}/topology/`)
+                    .then(res => res.json())
+                    .then(data => updateTopology(data))
+                    .catch(e => console.error('Load error:', e));
+            }
+        }
+
+        function updateTopology(data) {
+            allDevices = data.nodes;
+            const elements = [];
+
+            data.nodes.forEach(n => {
+                const hasCustomIcon = n.icon && n.icon.startsWith('data:image');
+                elements.push({
+                    group: 'nodes',
+                    data: {
+                        id: String(n.id),
+                        label: n.label,
+                        type: n.type,
+                        ip: n.ip,
+                        is_monitored: n.is_monitored,
+                        icon: hasCustomIcon ? n.icon : '',
+                        hasCustomIcon: hasCustomIcon
+                    },
+                    position: n.position
+                });
+            });
+
+            data.edges.forEach(e => {
+                elements.push({
+                    group: 'edges',
+                    data: {
+                        id: 'edge-' + String(e.id),
+                        dbId: e.id,
+                        source: String(e.source),
+                        target: String(e.target),
+                        source_if: e.source_interface,
+                        target_if: e.target_interface,
+                        bw: e.bandwidth
+                    }
+                });
+            });
+
+            if (!cy) {
+                initCytoscape(elements);
+            } else {
+                const viewport = { zoom: cy.zoom(), pan: cy.pan() };
+                cy.elements().remove();
+                cy.add(elements);
+                cy.layout({ name: 'preset' }).run();
+                setTimeout(() => cy.viewport(viewport), 50);
+            }
+
+            document.getElementById('details').innerHTML = `
+                <div class="stat"><span class="stat-label">Updated:</span> <span class="stat-value">${new Date().toLocaleTimeString()}</span></div>
+                <div class="stat"><span class="stat-label">Devices:</span> <span class="stat-value">${data.nodes.length}</span></div>
+                <div class="stat"><span class="stat-label">Links:</span> <span class="stat-value">${data.edges.length}</span></div>
+            `;
         }
 
         function previewImage(event) {
@@ -596,65 +724,6 @@
                     `<img src="${uploadedImageBase64}" alt="Preview">`;
             };
             reader.readAsDataURL(file);
-        }
-
-        async function loadTopology() {
-            try {
-                const res = await fetch(`${API}/topology/`);
-                const data = await res.json();
-                allDevices = data.nodes;
-                const elements = [];
-
-                data.nodes.forEach(n => {
-                    const hasCustomIcon = n.icon && n.icon.startsWith('data:image');
-                    elements.push({
-                        group: 'nodes',
-                        data: {
-                            id: String(n.id),
-                            label: n.label,
-                            type: n.type,
-                            ip: n.ip,
-                            is_monitored: n.is_monitored,
-                            icon: hasCustomIcon ? n.icon : '',
-                            hasCustomIcon: hasCustomIcon
-                        },
-                        position: n.position
-                    });
-                });
-
-                data.edges.forEach(e => {
-                    elements.push({
-                        group: 'edges',
-                        data: {
-                            id: 'edge-' + String(e.id),
-                            dbId: e.id,
-                            source: String(e.source),
-                            target: String(e.target),
-                            source_if: e.source_interface,
-                            target_if: e.target_interface,
-                            bw: e.bandwidth
-                        }
-                    });
-                });
-
-                if (!cy) {
-                    initCytoscape(elements);
-                } else {
-                    const viewport = { zoom: cy.zoom(), pan: cy.pan() };
-                    cy.elements().remove();
-                    cy.add(elements);
-                    cy.layout({ name: 'preset' }).run();
-                    setTimeout(() => cy.viewport(viewport), 50);
-                }
-
-                document.getElementById('details').innerHTML = `
-                    <div class="stat"><span class="stat-label">Updated:</span> <span class="stat-value">${new Date().toLocaleTimeString()}</span></div>
-                    <div class="stat"><span class="stat-label">Devices:</span> <span class="stat-value">${data.nodes.length}</span></div>
-                    <div class="stat"><span class="stat-label">Links:</span> <span class="stat-value">${data.edges.length}</span></div>
-                `;
-            } catch (e) {
-                console.error('Load error:', e);
-            }
         }
 
         function initCytoscape(elements) {
@@ -811,7 +880,6 @@
 
             uploadedImageBase64 = '';
             
-            // Show current icon if exists
             if (device.icon && device.icon.startsWith('data:image')) {
                 document.getElementById('edit-image-preview').innerHTML = 
                     `<img src="${device.icon}" alt="Current Icon">`;
@@ -867,7 +935,6 @@
                 if (res.ok) {
                     closeModal('add-device-modal');
                     document.getElementById('device-form').reset();
-                    loadTopology();
                 }
             } catch (e) {
                 alert('Error: ' + e.message);
@@ -894,7 +961,6 @@
                 if (res.ok) {
                     closeModal('add-link-modal');
                     document.getElementById('link-form').reset();
-                    loadTopology();
                 }
             } catch (e) {
                 alert('Error: ' + e.message);
@@ -912,7 +978,6 @@
                 is_monitored: document.getElementById('edit-device-monitored').checked
             };
 
-            // Only include icon if a new one was uploaded
             if (uploadedImageBase64) {
                 data.icon = uploadedImageBase64;
             }
@@ -926,7 +991,6 @@
 
                 if (res.ok) {
                     closeModal('edit-device-modal');
-                    loadTopology();
                 }
             } catch (e) {
                 alert('Error: ' + e.message);
@@ -951,7 +1015,6 @@
 
                 if (res.ok) {
                     closeModal('edit-link-modal');
-                    loadTopology();
                 }
             } catch (e) {
                 alert('Error: ' + e.message);
@@ -963,7 +1026,6 @@
             try {
                 const res = await fetch(`${API}/devices/${deviceId}/delete/`, { method: 'DELETE' });
                 if (res.ok) {
-                    loadTopology();
                     document.getElementById('details').innerHTML = '<div class="stat"><span class="stat-label">Device deleted</span></div>';
                 }
             } catch (e) {
@@ -976,7 +1038,6 @@
             try {
                 const res = await fetch(`${API}/links/${linkId}/delete/`, { method: 'DELETE' });
                 if (res.ok) {
-                    loadTopology();
                     document.getElementById('details').innerHTML = '<div class="stat"><span class="stat-label">Link deleted</span></div>';
                 }
             } catch (e) {
@@ -985,8 +1046,13 @@
         }
 
         updateLineToggleButton();
-        loadTopology();
-        setInterval(loadTopology, 30000);
+        connectWebSocket();
+
+        window.addEventListener('beforeunload', () => {
+            if (ws) {
+                ws.close();
+            }
+        });
     </script>
 </body>
 </html>
