@@ -467,12 +467,12 @@ This project is free and open-source. You are free to use, modify, and distribut
 
 ## 👤 Author
 
-**Hunter** - NOC Engineer @ NetActuate  
+**Hunter** - NOC Engineer & Aspiring DevOps Engineer  
 Network automation enthusiast and homelab operator
 
 - 🌐 Portfolio: [portfolio.vrhost.org](https://portfolio.vrhost.org)
 - 💼 GitHub: [@Dubzyy](https://github.com/Dubzyy)
-- 🔗 LinkedIn: [Connect with me](https://www.linkedin.com/in/hunter-network-engineer/)
+- 🔗 LinkedIn: [Connect with me](https://www.linkedin.com/in/hunter-wilsonit/)
 
 *Building tools to make network operations easier, one commit at a time.*
 
